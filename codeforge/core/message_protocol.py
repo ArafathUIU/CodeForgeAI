@@ -215,30 +215,32 @@ class MessageValidator:
 def create_task_assignment(
     task_id: str,
     description: str,
-    agent_role: AgentRole,
+    agent_role: AgentRole | str,
     sender: str = AgentRole.ORCHESTRATOR.value,
     recipient: str = "",
     **kwargs: Any,
 ) -> Message:
     """Factory for TASK_ASSIGNMENT messages."""
+    priority = kwargs.pop("priority", Priority.NORMAL)
+    role_value = agent_role.value if isinstance(agent_role, AgentRole) else agent_role
     payload = {
         "task_id": task_id,
         "description": description,
-        "agent_role": agent_role.value,
+        "agent_role": role_value,
         **kwargs,
     }
     return Message(
         sender=sender,
-        recipient=recipient or agent_role.value,
+        recipient=recipient or role_value,
         type=MessageType.TASK_ASSIGNMENT,
         payload=payload,
-        priority=kwargs.pop("priority", Priority.NORMAL),
+        priority=priority,
     )
 
 
 def create_artifact_submission(
     artifact_id: str,
-    artifact_type: ArtifactType,
+    artifact_type: ArtifactType | str,
     content: dict[str, Any],
     version: str = "1.0",
     sender: str = "",
@@ -246,9 +248,12 @@ def create_artifact_submission(
     **kwargs: Any,
 ) -> Message:
     """Factory for ARTIFACT_SUBMISSION messages."""
+    artifact_type_value = (
+        artifact_type.value if isinstance(artifact_type, ArtifactType) else artifact_type
+    )
     payload = {
         "artifact_id": artifact_id,
-        "artifact_type": artifact_type.value,
+        "artifact_type": artifact_type_value,
         "content": content,
         "version": version,
         **kwargs,
