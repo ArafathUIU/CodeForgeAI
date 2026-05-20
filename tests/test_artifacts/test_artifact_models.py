@@ -1,6 +1,6 @@
 """Tests for Phase 2 artifact models."""
 
-from codeforge.artifacts.prd import AcceptanceCriterion, PRD, ScopeBoundary, UserStory
+from codeforge.artifacts.prd import PRD, AcceptanceCriterion, ScopeBoundary, UserStory
 from codeforge.artifacts.tech_spec import (
     APIEndpoint,
     DataEntity,

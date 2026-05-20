@@ -7,7 +7,7 @@ import pytest
 from codeforge.core.agent_registry import AgentRegistry
 from codeforge.core.checkpoint import CheckpointManager
 from codeforge.core.message_bus import MessageBus
-from codeforge.core.orchestrator import Orchestrator, Phase, VALID_TRANSITIONS
+from codeforge.core.orchestrator import VALID_TRANSITIONS, Orchestrator, Phase
 from codeforge.core.state_store import EpisodicStore, SemanticStore
 from codeforge.utils.exceptions import PhaseTransitionError
 

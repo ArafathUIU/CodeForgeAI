@@ -5,7 +5,7 @@ Provides JSON and console log formatters with agent and phase context.
 
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from codeforge.utils.config import LoggingConfig
@@ -18,7 +18,7 @@ class JsonFormatter(logging.Formatter):
         import json
 
         log_entry: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -61,7 +61,7 @@ class ConsoleFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         color = self.COLORS.get(record.levelname, "")
-        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+        timestamp = datetime.now(UTC).strftime("%H:%M:%S")
         level = f"{color}{record.levelname:<8}{self.RESET}"
         name = f"{self.DIM}{record.name}{self.RESET}"
 

@@ -4,7 +4,8 @@ Provides reusable validators for messages, artifacts, and configuration.
 """
 
 import re
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 

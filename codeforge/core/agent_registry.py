@@ -11,8 +11,8 @@ import asyncio
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from codeforge.core.message_bus import MessageBus
@@ -25,7 +25,7 @@ from codeforge.utils.logging import get_agent_logger, get_logger
 logger = get_logger(__name__)
 
 
-class AgentState(str, Enum):
+class AgentState(StrEnum):
     INITIALIZED = "initialized"
     IDLE = "idle"
     WORKING = "working"
@@ -40,7 +40,7 @@ class AgentTask:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     description: str = ""
     artifact_type: str = ""
-    assigned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    assigned_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     deadline: datetime | None = None
     status: str = "pending"
 
@@ -116,7 +116,7 @@ class BaseAgent(ABC):
 
         try:
             self._state = AgentState.WORKING
-            self._started_at = datetime.now(timezone.utc)
+            self._started_at = datetime.now(UTC)
             self._progress = 0.0
 
             await asyncio.wait_for(
@@ -127,7 +127,7 @@ class BaseAgent(ABC):
             self._progress = 1.0
             self._state = AgentState.IDLE
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._state = AgentState.ERROR
             raise AgentTimeoutError(
                 f"Agent {self._agent_id} timed out after {timeout}s",
@@ -214,7 +214,7 @@ class BaseAgent(ABC):
             "current_task": self._current_task.description if self._current_task else None,
             "task_history_count": len(self._task_history),
             "uptime_seconds": (
-                (datetime.now(timezone.utc) - self._started_at).total_seconds()
+                (datetime.now(UTC) - self._started_at).total_seconds()
                 if self._started_at
                 else 0
             ),
@@ -236,7 +236,7 @@ class AgentRegistry:
             "role": agent.role,
             "state": agent.state.value,
             "metadata": metadata or {},
-            "registered_at": datetime.now(timezone.utc).isoformat(),
+            "registered_at": datetime.now(UTC).isoformat(),
         }
         logger.info(f"Agent registered: {agent.agent_id} ({agent.role})")
 

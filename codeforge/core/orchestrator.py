@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
-from codeforge.core.agent_registry import AgentRegistry, BaseAgent, AgentState
+from codeforge.core.agent_registry import AgentRegistry
 from codeforge.core.checkpoint import CheckpointManager
 from codeforge.core.message_bus import MessageBus
 from codeforge.core.message_protocol import (
@@ -24,18 +24,16 @@ from codeforge.core.message_protocol import (
     create_task_assignment,
 )
 from codeforge.core.state_store import EpisodicStore, SemanticStore
-from codeforge.utils.config import get_config
 from codeforge.utils.exceptions import (
     AgentNotFoundError,
     PhaseTransitionError,
-    PipelineError,
 )
 from codeforge.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class Phase(str, Enum):
+class Phase(StrEnum):
     INIT = "init"
     REQUIREMENTS = "requirements"
     ARCHITECTURE = "architecture"
@@ -59,7 +57,7 @@ PHASE_ORDER: list[Phase] = [
 ]
 
 VALID_TRANSITIONS: dict[Phase, list[Phase]] = {
-    Phase.INIT: [Phase.REQUIREMENTS],
+    Phase.INIT: [Phase.REQUIREMENTS, Phase.FAILED],
     Phase.REQUIREMENTS: [Phase.ARCHITECTURE, Phase.FAILED],
     Phase.ARCHITECTURE: [Phase.IMPLEMENTATION, Phase.REQUIREMENTS, Phase.FAILED],
     Phase.IMPLEMENTATION: [Phase.TESTING, Phase.ARCHITECTURE, Phase.FAILED],
@@ -86,7 +84,7 @@ class ApprovalGate:
     phase: Phase
     description: str
     artifact_id: str
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: str = "pending"
     decision: str | None = None
     comments: str = ""
@@ -137,7 +135,7 @@ class Orchestrator:
         self._input_spec = specification
         self._pipeline = PipelineState(
             phase=Phase.INIT,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
 
         self._episodic_store.add(
@@ -159,7 +157,7 @@ class Orchestrator:
             {"project_id": self._project_id, "spec_length": len(specification)},
         )
 
-        await self._checkpoint_mgr.create_checkpoint(
+        self._checkpoint_mgr.create_checkpoint(
             name="Project Start",
             phase=self._pipeline.phase.value,
             description="Initial project setup",
@@ -196,7 +194,7 @@ class Orchestrator:
             {"from_phase": old_phase.value, "to_phase": target_phase.value},
         )
 
-        await self._checkpoint_mgr.create_checkpoint(
+        self._checkpoint_mgr.create_checkpoint(
             name=f"Enter {target_phase.value}",
             phase=target_phase.value,
             description=f"Transitioned from {old_phase.value} to {target_phase.value}",
@@ -204,7 +202,7 @@ class Orchestrator:
         )
 
         if target_phase == Phase.COMPLETE:
-            self._pipeline.completed_at = datetime.now(timezone.utc)
+            self._pipeline.completed_at = datetime.now(UTC)
             await self._emit_system_event(
                 "project_complete",
                 f"Project {self._project_id[:8]} completed successfully",
@@ -212,9 +210,10 @@ class Orchestrator:
             return
 
         if target_phase == Phase.FAILED:
+            project_label = self._project_id[:8] if self._project_id else "unstarted"
             await self._emit_system_event(
                 "project_failed",
-                f"Project {self._project_id[:8]} failed",
+                f"Project {project_label} failed",
                 {"errors": self._pipeline.errors},
             )
             return
@@ -254,44 +253,44 @@ class Orchestrator:
                 f"probe edge cases, and formulate clarification questions if needed."
             ),
             Phase.ARCHITECTURE: (
-                f"Based on the PRD, design the technical architecture including:\n"
-                f"- Technology stack selection with justification\n"
-                f"- Data model design\n"
-                f"- API contract design\n"
-                f"- Complete folder/file tree\n"
-                f"- Risk assessment"
+                "Based on the PRD, design the technical architecture including:\n"
+                "- Technology stack selection with justification\n"
+                "- Data model design\n"
+                "- API contract design\n"
+                "- Complete folder/file tree\n"
+                "- Risk assessment"
             ),
             Phase.IMPLEMENTATION: (
-                f"Implement the software based on the technical specification.\n"
-                f"Create all necessary files, follow the folder structure, and ensure\n"
-                f"cross-file consistency. Use structured edits, not full file regeneration."
+                "Implement the software based on the technical specification.\n"
+                "Create all necessary files, follow the folder structure, and ensure\n"
+                "cross-file consistency. Use structured edits, not full file regeneration."
             ),
             Phase.TESTING: (
-                f"Generate a comprehensive test suite following five patterns:\n"
-                f"1. Happy path testing\n"
-                f"2. Boundary case testing\n"
-                f"3. Error handling testing\n"
-                f"4. Concurrency testing\n"
-                f"5. Security testing\n"
-                f"Target 85% code coverage. Map tests to PRD acceptance criteria."
+                "Generate a comprehensive test suite following five patterns:\n"
+                "1. Happy path testing\n"
+                "2. Boundary case testing\n"
+                "3. Error handling testing\n"
+                "4. Concurrency testing\n"
+                "5. Security testing\n"
+                "Target 85% code coverage. Map tests to PRD acceptance criteria."
             ),
             Phase.REVIEW: (
-                f"Perform a six-layer code review:\n"
-                f"1. Syntax analysis\n"
-                f"2. Security scanning\n"
-                f"3. Style compliance\n"
-                f"4. Performance analysis\n"
-                f"5. Maintainability assessment\n"
-                f"6. Architecture compliance\n"
-                f"Auto-fix style issues. Report critical findings for human approval."
+                "Perform a six-layer code review:\n"
+                "1. Syntax analysis\n"
+                "2. Security scanning\n"
+                "3. Style compliance\n"
+                "4. Performance analysis\n"
+                "5. Maintainability assessment\n"
+                "6. Architecture compliance\n"
+                "Auto-fix style issues. Report critical findings for human approval."
             ),
             Phase.DEPLOYMENT: (
-                f"Prepare deployment artifacts:\n"
-                f"- Multi-stage Dockerfile\n"
-                f"- Docker Compose configuration\n"
-                f"- CI/CD pipeline (GitHub Actions)\n"
-                f"- Environment template\n"
-                f"- Deployment documentation"
+                "Prepare deployment artifacts:\n"
+                "- Multi-stage Dockerfile\n"
+                "- Docker Compose configuration\n"
+                "- CI/CD pipeline (GitHub Actions)\n"
+                "- Environment template\n"
+                "- Deployment documentation"
             ),
         }
         return descriptions.get(phase, f"Execute {phase.value} phase tasks for {agent_name}")

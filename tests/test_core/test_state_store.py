@@ -13,7 +13,7 @@ from codeforge.utils.exceptions import StateNotFoundError
 class TestEpisodicStore:
     def test_add_and_get_entry(self):
         store = EpisodicStore()
-        entry = store.add("e1", "decision", {"key": "value"}, agent_id="pm", phase="requirements")
+        store.add("e1", "decision", {"key": "value"}, agent_id="pm", phase="requirements")
         retrieved = store.get("e1")
         assert retrieved.id == "e1"
         assert retrieved.type == "decision"
@@ -81,7 +81,7 @@ class TestEpisodicStore:
 class TestSemanticStore:
     def test_add_and_get(self):
         store = SemanticStore()
-        entry = store.add("s1", "FastAPI for async", "Use FastAPI for async APIs", "technology")
+        store.add("s1", "FastAPI for async", "Use FastAPI for async APIs", "technology")
         retrieved = store.get("s1")
         assert retrieved.pattern == "FastAPI for async"
 

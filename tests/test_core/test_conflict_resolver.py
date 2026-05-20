@@ -128,7 +128,7 @@ class TestConflictResolver:
     def test_get_summary(self, resolver):
         async def run():
             c1 = resolver.register_conflict(ConflictType.STYLE, "a", "b", "test1")
-            c2 = resolver.register_conflict(ConflictType.STYLE, "c", "d", "test2")
+            resolver.register_conflict(ConflictType.STYLE, "c", "d", "test2")
             await resolver.resolve(c1)
             return resolver.get_summary()
 

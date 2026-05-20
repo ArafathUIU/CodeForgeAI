@@ -1,6 +1,5 @@
 """Tests for the checkpoint system."""
 
-from codeforge.core.checkpoint import CheckpointManager
 
 
 class TestCheckpointManager:
@@ -22,7 +21,7 @@ class TestCheckpointManager:
         assert retrieved.name == "CP1"
 
     def test_get_latest(self, checkpoint_manager):
-        cp1 = checkpoint_manager.create_checkpoint(name="First")
+        checkpoint_manager.create_checkpoint(name="First")
         cp2 = checkpoint_manager.create_checkpoint(name="Second")
         latest = checkpoint_manager.get_latest()
         assert latest.id == cp2.id
@@ -63,7 +62,7 @@ class TestCheckpointManager:
 
     def test_rollback_changes_current(self, checkpoint_manager):
         cp1 = checkpoint_manager.create_checkpoint(name="CP1")
-        cp2 = checkpoint_manager.create_checkpoint(name="CP2")
+        checkpoint_manager.create_checkpoint(name="CP2")
         checkpoint_manager.rollback_to(cp1.id)
         latest = checkpoint_manager.get_latest()
         assert latest.id == cp1.id

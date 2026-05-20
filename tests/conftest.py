@@ -2,11 +2,11 @@
 
 import pytest
 
+from codeforge.core.agent_registry import AgentRegistry
+from codeforge.core.checkpoint import CheckpointManager
 from codeforge.core.message_bus import MessageBus
 from codeforge.core.message_protocol import Message, MessageType, Priority
 from codeforge.core.state_store import EpisodicStore, SemanticStore
-from codeforge.core.checkpoint import CheckpointManager
-from codeforge.core.agent_registry import AgentRegistry
 from codeforge.utils.config import Config, set_config
 
 

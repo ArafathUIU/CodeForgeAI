@@ -9,7 +9,6 @@ from codeforge.core.agent_registry import (
     AgentState,
     BaseAgent,
 )
-from codeforge.core.message_protocol import Message, MessageType
 from codeforge.utils.exceptions import AgentNotFoundError
 
 

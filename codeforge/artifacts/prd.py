@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -80,7 +80,7 @@ class PRD:
     open_questions: list[str] = field(default_factory=list)
     success_metrics: list[str] = field(default_factory=list)
     version: str = "1.0"
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def add_user_story(self, story: UserStory) -> None:
         self.user_stories.append(story)
@@ -107,7 +107,7 @@ class PRD:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PRD":
+    def from_dict(cls, data: dict[str, Any]) -> PRD:
         stories = []
         for story_data in data.get("user_stories", []):
             criteria = [

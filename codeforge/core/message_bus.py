@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import asyncio
 import heapq
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import datetime
+from typing import Any
 
 from codeforge.core.message_protocol import Message, Priority
-from codeforge.utils.exceptions import MessageDeliveryError
 from codeforge.utils.logging import get_logger
 
 logger = get_logger(__name__)

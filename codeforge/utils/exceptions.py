@@ -21,7 +21,7 @@ class AgentTimeoutError(AgentError):
     pass
 
 
-class AgentTaskFailure(AgentError):
+class AgentTaskFailureError(AgentError):
     """Raised when an agent fails to complete its assigned task."""
     pass
 

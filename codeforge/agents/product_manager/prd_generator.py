@@ -6,7 +6,7 @@ import uuid
 
 from codeforge.agents.product_manager.clarification import ClarificationSet
 from codeforge.agents.product_manager.intent_parser import ParsedIntent
-from codeforge.artifacts.prd import AcceptanceCriterion, PRD, ScopeBoundary, UserStory
+from codeforge.artifacts.prd import PRD, AcceptanceCriterion, ScopeBoundary, UserStory
 
 
 class PRDGenerator:

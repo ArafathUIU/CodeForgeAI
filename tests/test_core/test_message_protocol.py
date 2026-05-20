@@ -1,7 +1,7 @@
 """Tests for the message protocol module."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -14,8 +14,8 @@ from codeforge.core.message_protocol import (
     MessageValidator,
     Priority,
     create_artifact_submission,
-    create_task_assignment,
     create_system_event,
+    create_task_assignment,
 )
 
 
@@ -48,7 +48,7 @@ class TestMessage:
         assert not msg.is_expired()
 
     def test_is_expired_returns_true_for_old_message(self):
-        past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        past = datetime(2020, 1, 1, tzinfo=UTC)
         msg = Message(
             sender="a",
             recipient="b",

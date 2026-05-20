@@ -1,14 +1,14 @@
 """Typed artifact data models: PRD, TechSpec, SourceCode, TestSuite, etc."""
 
-from codeforge.artifacts.prd import AcceptanceCriterion, PRD, ScopeBoundary, UserStory
+from codeforge.artifacts.prd import PRD, AcceptanceCriterion, ScopeBoundary, UserStory
 from codeforge.artifacts.tech_spec import (
     APIEndpoint,
     DataEntity,
     DataField,
     FileTreeNode,
+    TechnicalRisk,
     TechSpec,
     TechStackDecision,
-    TechnicalRisk,
 )
 
 __all__ = [

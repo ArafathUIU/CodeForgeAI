@@ -7,8 +7,9 @@ Supports chat completion, streaming responses, and structured output parsing.
 import asyncio
 import json
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -154,7 +155,7 @@ class LlmClient:
                 code="CONNECTION_FAILED",
                 details={"host": self.config.host},
             )
-        except httpx.TimeoutException as e:
+        except httpx.TimeoutException:
             raise LLMConnectionError(
                 f"Ollama request timed out after {self.config.timeout}s",
                 code="TIMEOUT",
@@ -236,9 +237,9 @@ class LlmClient:
                 code="CONNECTION_FAILED",
                 details={"host": self.config.host},
             )
-        except httpx.TimeoutException as e:
+        except httpx.TimeoutException:
             raise LLMConnectionError(
-                f"Ollama stream timed out",
+                "Ollama stream timed out",
                 code="TIMEOUT",
                 details={"timeout": self.config.timeout},
             )
@@ -294,7 +295,7 @@ class LlmClient:
                 code="CONNECTION_FAILED",
                 details={"host": self.config.host},
             )
-        except httpx.TimeoutException as e:
+        except httpx.TimeoutException:
             raise LLMConnectionError(
                 f"Ollama request timed out after {self.config.timeout}s",
                 code="TIMEOUT",

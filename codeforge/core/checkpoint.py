@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +28,7 @@ class Checkpoint:
     name: str = ""
     phase: str = ""
     description: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     parent_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -65,7 +65,7 @@ class Checkpoint:
             description=data.get("description", ""),
             timestamp=datetime.fromisoformat(data["timestamp"])
             if "timestamp" in data
-            else datetime.now(timezone.utc),
+            else datetime.now(UTC),
             parent_id=data.get("parent_id"),
             metadata=data.get("metadata", {}),
             artifacts=data.get("artifacts", {}),
@@ -165,7 +165,7 @@ class CheckpointManager:
                 f"Checkpoint file not found: {filepath}",
                 code="CHECKPOINT_FILE_MISSING",
             )
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
         return Checkpoint.from_dict(data)
 
@@ -311,10 +311,9 @@ class CheckpointManager:
         removed = 0
 
         to_remove = all_cps[keep_count:]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if older_than_hours is not None:
-            cutoff = datetime.now(timezone.utc)
             older = [
                 cp for cp in all_cps
                 if (now - cp.timestamp).total_seconds() > older_than_hours * 3600

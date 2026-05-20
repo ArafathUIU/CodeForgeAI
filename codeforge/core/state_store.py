@@ -10,11 +10,10 @@ from __future__ import annotations
 import json
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from codeforge.utils.config import get_config
-from codeforge.utils.exceptions import StateNotFoundError, StateStoreError
+from codeforge.utils.exceptions import StateNotFoundError
 from codeforge.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -27,7 +26,7 @@ class EpisodicEntry:
     id: str
     type: str
     content: dict[str, Any]
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     agent_id: str = ""
     phase: str = ""
     tags: list[str] = field(default_factory=list)
@@ -44,7 +43,7 @@ class SemanticEntry:
     confidence: float = 1.0
     source_project: str = ""
     usage_count: int = 0
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class EpisodicStore:

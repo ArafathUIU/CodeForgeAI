@@ -7,14 +7,14 @@ enabling traceable, structured, and verifiable communication.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class MessageType(str, Enum):
+class MessageType(StrEnum):
     """Enumeration of all message types in the CodeForge protocol."""
 
     TASK_ASSIGNMENT = "task_assignment"
@@ -30,7 +30,7 @@ class MessageType(str, Enum):
     SYSTEM_EVENT = "system_event"
 
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     """Message priority levels."""
 
     LOW = "low"
@@ -39,7 +39,7 @@ class Priority(str, Enum):
     CRITICAL = "critical"
 
 
-class AgentRole(str, Enum):
+class AgentRole(StrEnum):
     """Known agent roles in the system."""
 
     ORCHESTRATOR = "orchestrator"
@@ -53,7 +53,7 @@ class AgentRole(str, Enum):
     CONFLICT_RESOLVER = "conflict_resolver"
 
 
-class ArtifactType(str, Enum):
+class ArtifactType(StrEnum):
     """Types of artifacts produced by agents."""
 
     PRD = "prd"
@@ -80,7 +80,7 @@ class Message(BaseModel):
     priority: Priority = Priority.NORMAL
     requires_response: bool = False
     timeout_seconds: int = 300
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     correlation_id: str | None = None
 
     @field_validator("id")
@@ -103,7 +103,7 @@ class Message(BaseModel):
         """Check if the message has exceeded its timeout."""
         if self.timeout_seconds <= 0:
             return False
-        age = (datetime.now(timezone.utc) - self.timestamp).total_seconds()
+        age = (datetime.now(UTC) - self.timestamp).total_seconds()
         return age > self.timeout_seconds
 
     def create_reply(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -128,7 +128,7 @@ class TechSpec:
     file_tree: list[FileTreeNode] = field(default_factory=list)
     risks: list[TechnicalRisk] = field(default_factory=list)
     version: str = "1.0"
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def is_ready_for_implementation(self) -> bool:
         return bool(self.tech_stack and self.file_tree)

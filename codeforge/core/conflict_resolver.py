@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from codeforge.core.state_store import EpisodicStore
@@ -19,7 +19,7 @@ from codeforge.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class ConflictType(str, Enum):
+class ConflictType(StrEnum):
     SECURITY = "security"
     PERFORMANCE = "performance"
     ARCHITECTURE = "architecture"
@@ -40,7 +40,7 @@ CONFLICT_PRIORITY: dict[ConflictType, int] = {
 }
 
 
-class ResolutionStrategy(str, Enum):
+class ResolutionStrategy(StrEnum):
     AUTO_RESOLVE = "auto_resolve"
     HIGHER_PRIORITY_WINS = "higher_priority_wins"
     MERGE_BOTH = "merge_both"
@@ -58,7 +58,7 @@ class Conflict:
     details: dict[str, Any] = field(default_factory=dict)
     proposal_a: Any = None
     proposal_b: Any = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: str = "unresolved"
     resolution_strategy: ResolutionStrategy | None = None
     resolution_result: dict[str, Any] = field(default_factory=dict)
@@ -100,6 +100,12 @@ class ConflictClassifier:
         text = description.lower()
         if details:
             text += " " + " ".join(str(v) for v in details.values()).lower()
+
+        if "architecture" in text or "dependency injection" in text:
+            return ConflictType.ARCHITECTURE
+
+        if "naming" in text or "function name" in text or "class name" in text:
+            return ConflictType.NAMING
 
         for ctype, keywords in cls.KEYWORDS.items():
             for keyword in keywords:
@@ -173,8 +179,6 @@ class ConflictResolver:
         return conflict
 
     def _determine_strategy(self, conflict: Conflict) -> ResolutionStrategy:
-        priority = CONFLICT_PRIORITY[conflict.conflict_type]
-
         if conflict.conflict_type == ConflictType.SECURITY:
             return ResolutionStrategy.HIGHER_PRIORITY_WINS
 
@@ -185,7 +189,6 @@ class ConflictResolver:
 
         if conflict.conflict_type == ConflictType.ARCHITECTURE:
             agent_a_role = conflict.details.get("role_a", "")
-            agent_b_role = conflict.details.get("role_b", "")
             if "architect" in agent_a_role.lower():
                 return ResolutionStrategy.HIGHER_PRIORITY_WINS
             return ResolutionStrategy.ESCALATE_TO_HUMAN
@@ -289,7 +292,7 @@ class ConflictResolver:
                 else None
             ),
             "result": conflict.resolution_result,
-            "resolved_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_at": datetime.now(UTC).isoformat(),
         }
         self._resolution_log.append(log_entry)
 
