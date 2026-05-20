@@ -8,15 +8,13 @@ and decision history. Enables rollback to any previous state.
 from __future__ import annotations
 
 import json
-import os
-import shutil
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from codeforge.utils.exceptions import CheckpointError, RollbackError
+from codeforge.utils.exceptions import CheckpointError
 from codeforge.utils.logging import get_logger
 
 logger = get_logger(__name__)

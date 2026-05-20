@@ -1,6 +1,6 @@
 """Tests for the checkpoint system."""
 
-from codeforge.core.checkpoint import Checkpoint, CheckpointManager
+from codeforge.core.checkpoint import CheckpointManager
 
 
 class TestCheckpointManager:

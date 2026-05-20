@@ -32,7 +32,12 @@ class DataModelDesigner:
                         DataField("id", "integer", indexed=True, description="Primary key"),
                         DataField("user_id", "integer", indexed=True, description="Owner user ID"),
                         DataField("title", "string", description="Human-readable label"),
-                        DataField("metadata", "json", required=False, description="Feature-specific data"),
+                        DataField(
+                            "metadata",
+                            "json",
+                            required=False,
+                            description="Feature-specific data",
+                        ),
                         DataField("created_at", "datetime", description="Creation timestamp"),
                     ],
                     relationships=["belongs_to User"],

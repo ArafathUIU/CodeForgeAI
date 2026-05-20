@@ -1,17 +1,13 @@
 """Tests for the LLM client module (unit tests, no live server needed)."""
 
-import asyncio
-
 import pytest
 
 from codeforge.core.llm_client import (
     ChatMessage,
     ContextWindowManager,
-    LlmClient,
     ResponseParser,
     LLMResponse,
 )
-from codeforge.utils.config import LLMConfig
 
 
 class TestChatMessage:

@@ -8,11 +8,9 @@ context digest generation for fitting within LLM context windows.
 from __future__ import annotations
 
 import json
-import os
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from codeforge.utils.config import get_config

@@ -7,7 +7,6 @@ the pipeline flows from requirements to deployment.
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -448,6 +447,10 @@ class Orchestrator:
                 {"id": g.id, "status": g.status, "decision": g.decision}
                 for g in self._pipeline.approval_gates
             ],
-            "started_at": self._pipeline.started_at.isoformat() if self._pipeline.started_at else None,
-            "completed_at": self._pipeline.completed_at.isoformat() if self._pipeline.completed_at else None,
+            "started_at": (
+                self._pipeline.started_at.isoformat() if self._pipeline.started_at else None
+            ),
+            "completed_at": (
+                self._pipeline.completed_at.isoformat() if self._pipeline.completed_at else None
+            ),
         }

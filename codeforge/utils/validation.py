@@ -98,7 +98,7 @@ is_valid_phase = Validator(
         "requirements", "architecture", "implementation",
         "testing", "review", "deployment", "complete",
     },
-    "Phase must be one of: requirements, architecture, implementation, testing, review, deployment, complete",
+    "Phase must be one of the supported CodeForge pipeline phases",
 )
 
 

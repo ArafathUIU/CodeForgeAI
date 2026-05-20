@@ -367,7 +367,9 @@ class LlmClient:
                 last_error = e
                 if attempt < max_retries:
                     logger.warning(
-                        f"LLM request failed (attempt {attempt + 1}/{max_retries + 1}), retrying in {retry_delay}s",
+                        "LLM request failed "
+                        f"(attempt {attempt + 1}/{max_retries + 1}), "
+                        f"retrying in {retry_delay}s",
                         extra={"error": str(e)},
                     )
                     await asyncio.sleep(retry_delay)

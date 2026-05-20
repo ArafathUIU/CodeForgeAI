@@ -17,7 +17,10 @@ class RiskAssessor:
             TechnicalRisk(
                 description="Generated code may drift from API contracts across files.",
                 severity="medium",
-                mitigation="Use Code Writer symbol tracking and syntax validation after each batch.",
+                mitigation=(
+                    "Use Code Writer symbol tracking and syntax validation "
+                    "after each batch."
+                ),
             ),
         ]
         if any("authentication" in feature for feature in prd.scope.in_scope):

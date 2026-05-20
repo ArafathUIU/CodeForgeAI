@@ -1,7 +1,14 @@
 """Tests for Phase 2 artifact models."""
 
 from codeforge.artifacts.prd import AcceptanceCriterion, PRD, ScopeBoundary, UserStory
-from codeforge.artifacts.tech_spec import APIEndpoint, DataEntity, DataField, FileTreeNode, TechSpec, TechStackDecision
+from codeforge.artifacts.tech_spec import (
+    APIEndpoint,
+    DataEntity,
+    DataField,
+    FileTreeNode,
+    TechSpec,
+    TechStackDecision,
+)
 
 
 def test_user_story_statement_and_serialization():

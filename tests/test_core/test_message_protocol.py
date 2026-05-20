@@ -1,6 +1,5 @@
 """Tests for the message protocol module."""
 
-import json
 import uuid
 from datetime import datetime, timezone
 

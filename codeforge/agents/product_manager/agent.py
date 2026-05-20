@@ -6,7 +6,12 @@ from codeforge.agents.product_manager.clarification import ClarificationEngine
 from codeforge.agents.product_manager.intent_parser import IntentParser
 from codeforge.agents.product_manager.prd_generator import PRDGenerator
 from codeforge.core.agent_registry import BaseAgent
-from codeforge.core.message_protocol import ArtifactType, Message, MessageType, create_artifact_submission
+from codeforge.core.message_protocol import (
+    ArtifactType,
+    Message,
+    MessageType,
+    create_artifact_submission,
+)
 
 
 class ProductManagerAgent(BaseAgent):

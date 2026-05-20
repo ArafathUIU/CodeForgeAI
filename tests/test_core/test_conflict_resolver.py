@@ -5,7 +5,6 @@ import asyncio
 import pytest
 
 from codeforge.core.conflict_resolver import (
-    Conflict,
     ConflictClassifier,
     ConflictResolver,
     ConflictType,
@@ -24,7 +23,9 @@ class TestConflictClassifier:
         assert result == ConflictType.PERFORMANCE
 
     def test_classify_architecture(self):
-        result = ConflictClassifier.classify("The architecture pattern should use dependency injection")
+        result = ConflictClassifier.classify(
+            "The architecture pattern should use dependency injection"
+        )
         assert result == ConflictType.ARCHITECTURE
 
     def test_classify_style(self):

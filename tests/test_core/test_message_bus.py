@@ -1,7 +1,5 @@
 """Tests for the message bus module."""
 
-import pytest
-
 from codeforge.core.message_bus import MessageBus
 from codeforge.core.message_protocol import Message, MessageType, Priority
 
@@ -15,7 +13,6 @@ class TestMessageBus:
             received.append(msg)
 
         bus.register_agent("orchestrator", handler)
-        bus.publish(sample_message)
 
         import asyncio
 
