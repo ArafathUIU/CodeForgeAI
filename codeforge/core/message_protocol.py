@@ -222,7 +222,7 @@ def create_task_assignment(
 ) -> Message:
     """Factory for TASK_ASSIGNMENT messages."""
     priority = kwargs.pop("priority", Priority.NORMAL)
-    role_value = agent_role.value if isinstance(agent_role, AgentRole) else agent_role
+    role_value = getattr(agent_role, "value", agent_role)
     payload = {
         "task_id": task_id,
         "description": description,
@@ -248,9 +248,7 @@ def create_artifact_submission(
     **kwargs: Any,
 ) -> Message:
     """Factory for ARTIFACT_SUBMISSION messages."""
-    artifact_type_value = (
-        artifact_type.value if isinstance(artifact_type, ArtifactType) else artifact_type
-    )
+    artifact_type_value = getattr(artifact_type, "value", artifact_type)
     payload = {
         "artifact_id": artifact_id,
         "artifact_type": artifact_type_value,
