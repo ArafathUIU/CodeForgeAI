@@ -6,8 +6,8 @@
 |-------|--------|------|
 | Phase 1 - Foundation & Orchestration | Done | - |
 | Phase 2 - PM & Architect Agents | Done (with handoff fix) | 2026-05-23 |
-| Phase 3 - Code Writer Agent | In Progress | 2026-05-23 |
-| Phase 4 - Test Engineer & Code Reviewer | Pending | - |
+| Phase 3 - Code Writer Agent | Done | 2026-05-23 |
+| Phase 4 - Test Engineer & Code Reviewer | In Progress | - |
 | Phase 5 - DevOps & Git | Pending | - |
 | Phase 6 - Dashboard & Integration | Pending | - |
 | Phase 7 - Stretch Goals | Pending | - |
