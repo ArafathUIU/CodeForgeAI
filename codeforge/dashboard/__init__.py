@@ -1,1 +1,3 @@
-"""Streamlit dashboard for human-in-the-loop monitoring and control."""
+"""Streamlit Dashboard for CodeForge AI."""
+
+__all__ = ["app"]
