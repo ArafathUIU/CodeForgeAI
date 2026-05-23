@@ -57,36 +57,40 @@ class MessageBus:
         async with self._lock:
             self._message_history.append(message)
             self._delivery_status[message.id] = "published"
-
-            delivered = False
-
             handler = self._agent_handlers.get(message.recipient)
-            if handler:
-                try:
-                    await self._dispatch_to_handler(message, handler)
+            subscribers = list(self._subscribers.get(message.recipient, []))
+
+        delivered = False
+
+        if handler:
+            try:
+                await self._dispatch_to_handler(message, handler)
+                async with self._lock:
                     self._delivery_status[message.id] = "delivered"
-                    delivered = True
-                except Exception as e:
+                delivered = True
+            except Exception as e:
+                async with self._lock:
                     logger.error(
                         f"Failed to deliver message {message.id} to {message.recipient}",
                         extra={"error": str(e), "message_id": message.id},
                     )
                     self._delivery_status[message.id] = "failed"
 
-            subscribers = self._subscribers.get(message.recipient, [])
-            for handler_fn in subscribers:
-                try:
-                    await self._dispatch_to_handler(message, handler_fn)
-                    if not delivered:
+        for handler_fn in subscribers:
+            try:
+                await self._dispatch_to_handler(message, handler_fn)
+                if not delivered:
+                    async with self._lock:
                         self._delivery_status[message.id] = "delivered"
-                        delivered = True
-                except Exception as e:
-                    logger.error(
-                        f"Failed to deliver message {message.id} to subscriber",
-                        extra={"error": str(e)},
-                    )
+                    delivered = True
+            except Exception as e:
+                logger.error(
+                    f"Failed to deliver message {message.id} to subscriber",
+                    extra={"error": str(e)},
+                )
 
-            if not delivered:
+        if not delivered:
+            async with self._lock:
                 self._dead_letter.append(message)
                 self._delivery_status[message.id] = "dead_letter"
                 logger.warning(

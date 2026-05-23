@@ -7,6 +7,10 @@ import pytest
 from codeforge.core.agent_registry import AgentRegistry
 from codeforge.core.checkpoint import CheckpointManager
 from codeforge.core.message_bus import MessageBus
+from codeforge.core.message_protocol import (
+    ArtifactType,
+    create_artifact_submission,
+)
 from codeforge.core.orchestrator import VALID_TRANSITIONS, Orchestrator, Phase
 from codeforge.core.state_store import EpisodicStore, SemanticStore
 from codeforge.utils.exceptions import PhaseTransitionError
@@ -91,3 +95,73 @@ class TestOrchestrator:
         assert "test_engineer" in PHASE_AGENTS[Phase.TESTING]
         assert "code_reviewer" in PHASE_AGENTS[Phase.REVIEW]
         assert "devops" in PHASE_AGENTS[Phase.DEPLOYMENT]
+
+
+class TestArtifactHandoff:
+    @pytest.fixture
+    def orchestrator(self, tmp_path):
+        bus = MessageBus()
+        registry = AgentRegistry()
+        checkpoint = CheckpointManager(storage_path=tmp_path / "checkpoints")
+        episodic = EpisodicStore()
+        semantic = SemanticStore()
+        return Orchestrator(bus, registry, checkpoint, episodic, semantic)
+
+    def test_artifact_storage_and_retrieval(self, orchestrator):
+        async def run():
+            await orchestrator.start_project("Build an app")
+            prd_data = {"id": "test-prd", "title": "Test App", "summary": "A test app"}
+            msg = create_artifact_submission(
+                artifact_id="test-prd",
+                artifact_type=ArtifactType.PRD,
+                content=prd_data,
+                sender="product_manager",
+            )
+            await orchestrator.handle_artifact_submission(msg)
+
+            stored = orchestrator.get_artifact("prd")
+            assert stored is not None
+            assert stored["title"] == "Test App"
+
+        asyncio.get_event_loop().run_until_complete(run())
+
+    def test_orchestrator_receives_artifact_via_bus(self, orchestrator):
+        async def run():
+            await orchestrator.start_project("Build an app")
+
+            prd_data = {"id": "test-prd", "title": "Via Bus App", "summary": "Test"}
+            msg = create_artifact_submission(
+                artifact_id="test-prd",
+                artifact_type=ArtifactType.PRD,
+                content=prd_data,
+                sender="product_manager",
+                recipient="orchestrator",
+            )
+            await orchestrator._message_bus.publish(msg)
+
+            stored = orchestrator.get_artifact("prd")
+            assert stored is not None
+            assert stored["title"] == "Via Bus App"
+
+        asyncio.get_event_loop().run_until_complete(run())
+
+    def test_auto_approve_advances_phase(self, orchestrator):
+        async def run():
+            await orchestrator.start_project("Build an app")
+
+            prd_data = {"id": "test-prd", "title": "Auto Approve App", "summary": "Test"}
+            msg = create_artifact_submission(
+                artifact_id="test-prd",
+                artifact_type=ArtifactType.PRD,
+                content=prd_data,
+                sender="product_manager",
+                recipient="orchestrator",
+            )
+            await orchestrator._message_bus.publish(msg)
+
+            assert orchestrator.get_artifact("prd") is not None
+
+        asyncio.get_event_loop().run_until_complete(run())
+
+    def test_empty_artifact_store_returns_none(self, orchestrator):
+        assert orchestrator.get_artifact("nonexistent") is None

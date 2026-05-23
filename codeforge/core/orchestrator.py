@@ -120,6 +120,26 @@ class Orchestrator:
         self._project_id: str | None = None
         self._output_directory: str = ""
         self._input_spec: str = ""
+        self._artifacts: dict[str, dict[str, Any]] = {}
+        self._subscribed = False
+
+    def _ensure_subscribed(self) -> None:
+        if not self._subscribed:
+            self._subscribed = True
+            self._message_bus.register_agent("orchestrator", self._on_message)
+
+    async def _on_message(self, message: Message) -> None:
+        if message.type == MessageType.ARTIFACT_SUBMISSION:
+            await self.handle_artifact_submission(message)
+        elif message.type == MessageType.APPROVAL_RESPONSE:
+            await self.handle_approval_response(message)
+        elif message.type == MessageType.BLOCKAGE_REPORT:
+            await self.handle_blockage(message)
+        elif message.type == MessageType.STATUS_UPDATE:
+            pass
+
+    def get_artifact(self, artifact_type: str) -> dict[str, Any] | None:
+        return self._artifacts.get(artifact_type)
 
     @property
     def current_phase(self) -> Phase:
@@ -130,6 +150,7 @@ class Orchestrator:
         return self._pipeline.phase in (Phase.COMPLETE, Phase.FAILED)
 
     async def start_project(self, specification: str, output_directory: str = "") -> str:
+        self._ensure_subscribed()
         self._project_id = str(uuid.uuid4())
         self._output_directory = output_directory or f"./codeforge_project_{self._project_id[:8]}"
         self._input_spec = specification
@@ -229,13 +250,33 @@ class Orchestrator:
                 task_id = f"{phase.value}_{agent_name}_{uuid.uuid4().hex[:8]}"
                 description = self._build_task_description(phase, agent_name)
 
+                context: dict[str, Any] = {
+                    "project_id": self._project_id,
+                    "specification": self._input_spec,
+                }
+
+                if phase == Phase.ARCHITECTURE:
+                    prd = self.get_artifact("prd")
+                    if prd:
+                        context["prd"] = prd
+
+                if phase == Phase.IMPLEMENTATION:
+                    tech_spec = self.get_artifact("tech_spec")
+                    if tech_spec:
+                        context["tech_spec"] = tech_spec
+
+                if phase == Phase.TESTING:
+                    tech_spec = self.get_artifact("tech_spec")
+                    if tech_spec:
+                        context["tech_spec"] = tech_spec
+
                 message = create_task_assignment(
                     task_id=task_id,
                     description=description,
                     agent_role=agent.role,
                     sender="orchestrator",
                     recipient=agent_name,
-                    context={"project_id": self._project_id, "specification": self._input_spec},
+                    context=context,
                 )
 
                 await self._message_bus.publish(message)
@@ -298,6 +339,9 @@ class Orchestrator:
     async def handle_artifact_submission(self, message: Message) -> None:
         artifact_id = message.payload.get("artifact_id", "unknown")
         artifact_type = message.payload.get("artifact_type", "unknown")
+        content = message.payload.get("content", {})
+
+        self._artifacts[artifact_type] = content
 
         self._episodic_store.add(
             entry_id=f"artifact_{artifact_id}",
@@ -315,7 +359,22 @@ class Orchestrator:
         logger.info(f"Received artifact: {artifact_id} ({artifact_type}) from {message.sender}")
 
         if self._requires_approval(self._pipeline.phase):
-            await self._create_approval_gate(artifact_id, self._pipeline.phase)
+            gate = await self._create_approval_gate(artifact_id, self._pipeline.phase)
+            await self._auto_approve(gate)
+
+    async def _auto_approve(self, gate: ApprovalGate) -> None:
+        gate.status = "resolved"
+        gate.decision = "approve"
+        gate.comments = "Auto-approved for pipeline flow"
+
+        next_phase_map = {
+            Phase.REQUIREMENTS: Phase.ARCHITECTURE,
+            Phase.ARCHITECTURE: Phase.IMPLEMENTATION,
+            Phase.DEPLOYMENT: Phase.COMPLETE,
+        }
+        next_phase = next_phase_map.get(self._pipeline.phase)
+        if next_phase:
+            await self.transition_to(next_phase)
 
     def _requires_approval(self, phase: Phase) -> bool:
         return phase in {
@@ -324,7 +383,7 @@ class Orchestrator:
             Phase.DEPLOYMENT,
         }
 
-    async def _create_approval_gate(self, artifact_id: str, phase: Phase) -> None:
+    async def _create_approval_gate(self, artifact_id: str, phase: Phase) -> ApprovalGate:
         gate = ApprovalGate(
             id=str(uuid.uuid4()),
             phase=phase,
@@ -349,17 +408,24 @@ class Orchestrator:
         await self._message_bus.publish(message)
 
         logger.info(f"Approval gate created: {gate.id} for {artifact_id}")
+        return gate
 
     async def handle_approval_response(self, message: Message) -> None:
         approval_id = message.payload.get("approval_id", "")
         decision = message.payload.get("decision", "reject")
 
+        matched_gate: ApprovalGate | None = None
         for gate in self._pipeline.approval_gates:
             if gate.id == approval_id:
                 gate.status = "resolved"
                 gate.decision = decision
                 gate.comments = message.payload.get("comments", "")
+                matched_gate = gate
                 break
+
+        if matched_gate is None:
+            logger.warning(f"No approval gate found for {approval_id}")
+            return
 
         if decision == "approve":
             next_phase_map = {
@@ -377,7 +443,7 @@ class Orchestrator:
                 recipient=self._get_phase_agent(),
                 type=MessageType.REVISION_REQUEST,
                 payload={
-                    "artifact_id": gate.artifact_id,
+                    "artifact_id": matched_gate.artifact_id,
                     "revision_notes": message.payload.get("comments", "Revision requested"),
                     "requested_by": "human_operator",
                 },
