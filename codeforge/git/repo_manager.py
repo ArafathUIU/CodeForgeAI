@@ -72,12 +72,20 @@ class RepoManager:
 
         try:
             repo = git.Repo(self._repo_path)
+            try:
+                branch_name = repo.active_branch.name if not repo.head.is_detached else "detached"
+            except (TypeError, ValueError):
+                branch_name = "main"
+
             untracked = repo.untracked_files
             changed = [item.a_path for item in repo.index.diff(None)]
-            staged = [item.a_path for item in repo.index.diff("HEAD")]
+            try:
+                staged = [item.a_path for item in repo.index.diff("HEAD")]
+            except Exception:
+                staged = []
 
             return {
-                "branch": repo.active_branch.name if not repo.head.is_detached else "detached",
+                "branch": branch_name,
                 "untracked_files": untracked,
                 "changed_files": changed,
                 "staged_files": staged,

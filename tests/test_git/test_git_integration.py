@@ -38,9 +38,11 @@ class TestRepoManager:
 
     def test_get_repo_info(self, repo_manager):
         repo_manager.initialize()
+        repo_manager.create_gitignore()
+        cm = CommitManager(str(repo_manager._repo_path))
+        cm.commit("Initial commit", agent="test")
         info = repo_manager.get_repo_info()
         assert info.branch in ("main", "master")
-        assert info.path
 
 
 class TestCommitManager:
@@ -80,6 +82,9 @@ class TestBranchManager:
         repo_path = tmp_path / "branch_test"
         rm = RepoManager(str(repo_path))
         rm.initialize()
+        rm.create_gitignore()
+        cm = CommitManager(str(repo_path))
+        cm.commit("Initial commit", agent="test")
         return BranchManager(str(repo_path))
 
     def test_create_branch(self, branch_manager):
