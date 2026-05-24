@@ -142,25 +142,93 @@ class CodeWriterAgent(LLMMixin, BaseAgent):
         self, tech_spec_data: dict, files: list[str]
     ) -> dict[str, str]:
         result: dict[str, str] = {}
-
         endpoints = tech_spec_data.get("api_endpoints", [])
         entities = tech_spec_data.get("data_entities", [])
+        title = tech_spec_data.get("title", "Service")
+
+        handlers = {
+            "__init__.py": lambda f: "",
+            "models.py": lambda f: self._build_models(entities),
+            "routes.py": lambda f: self._build_routes(endpoints),
+            "services.py": lambda f: self._build_services(endpoints),
+            "schemas.py": lambda f: self._build_schemas(entities),
+            "main.py": lambda f: self._build_main(title),
+            "config.py": lambda f: self._build_config(),
+            "database.py": lambda f: self._build_database(),
+            "requirements.txt": lambda f: self._build_requirements(tech_spec_data),
+            "README.md": lambda f: self._build_readme(tech_spec_data),
+            "conftest.py": lambda f: self._build_conftest(),
+        }
 
         for f in files:
-            if "__init__.py" in f:
-                result[f] = ""
-            elif "models.py" in f:
-                result[f] = self._build_models(entities)
-            elif "routes.py" in f:
-                result[f] = self._build_routes(endpoints)
-            elif "services.py" in f:
-                result[f] = self._build_services(endpoints)
-            elif "requirements.txt" in f:
-                result[f] = self._build_requirements(tech_spec_data)
-            elif "README.md" in f:
-                result[f] = self._build_readme(tech_spec_data)
+            matched = None
+            for pattern, handler in handlers.items():
+                if pattern in f:
+                    matched = handler
+                    break
+            if matched:
+                result[f] = matched(f)
+            elif f.endswith(".py"):
+                result[f] = self._build_stub_module(f)
 
         return result
+
+    def _build_schemas(self, entities: list) -> str:
+        lines = ['"""Pydantic schemas."""', "", "from pydantic import BaseModel", "", ""]
+        for entity in entities:
+            name = entity.get("name", entity.name if hasattr(entity, "name") else "Entity")
+            lines.append(f"class {name}Schema(BaseModel):")
+            lines.append(f'    """Schema for {name}."""')
+            fields = entity.get("fields", [])
+            for field_def in fields:
+                fname = field_def.get("name", "id")
+                ftype = entity.get("python_type", "str")
+                required = field_def.get("required", True)
+                default = "" if required else " | None = None"
+                lines.append(f"    {fname}: {ftype}{default}")
+            lines.append("")
+        return "\n".join(lines)
+
+    def _build_main(self, title: str) -> str:
+        return (
+            '"""Application entry point."""\n\n'
+            'from fastapi import FastAPI\n\n'
+            f'app = FastAPI(title="{title}", version="0.1.0")\n\n'
+            '\n'
+            '@app.get("/health")\n'
+            'def health():\n'
+            '    return {"status": "ok"}\n'
+        )
+
+    @staticmethod
+    def _build_config() -> str:
+        return '"""Application configuration."""\n\n\nclass Settings:\n    app_name: str = "app"\n'
+
+    @staticmethod
+    def _build_database() -> str:
+        return (
+            '"""Database session management."""\n\n'
+            'from sqlalchemy import create_engine\n'
+            'from sqlalchemy.orm import sessionmaker\n\n'
+            'engine = create_engine("sqlite:///./data.db", echo=False)\n'
+            'SessionLocal = sessionmaker(bind=engine)\n'
+        )
+
+    def _build_stub_module(self, filepath: str) -> str:
+        name = filepath.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].replace(".py", "")
+        return f'"""Stub for {name}."""\n\n\n'
+
+    @staticmethod
+    def _build_conftest() -> str:
+        return (
+            '"""Shared test fixtures."""\n\n'
+            'import pytest\n\n'
+            '@pytest.fixture\n'
+            'def client():\n'
+            '    from app.main import app\n'
+            '    from fastapi.testclient import TestClient\n'
+            '    return TestClient(app)\n'
+        )
 
     def _build_models(self, entities: list) -> str:
         lines = ['"""Data models."""', "", ""]

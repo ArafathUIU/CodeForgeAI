@@ -47,7 +47,7 @@ dev = [
 ]
 
 [project.scripts]
-codeforge = "codeforge.dashboard.app:main"
+codeforge = "codeforge.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["codeforge*"]
