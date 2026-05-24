@@ -1,6 +1,6 @@
 # CodeForgeAI - Implementation Progress
 
-## Overall Status: All 7 Phases Complete, Pipeline End-to-End Working
+## Overall Status: All 7 Phases Complete — Full E2E Pipeline + Tech Command Center UI
 
 | Phase | Status | Date |
 |-------|--------|------|
@@ -11,6 +11,25 @@
 | Phase 5 - DevOps & Git | Done | 2026-05-23 |
 | Phase 6 - Dashboard, API & E2E | Done | 2026-05-23 |
 | Phase 7 - Plugins, LLM Integration, Polish | Done | 2026-05-24 |
+| **Tech Command Center UI** | **Done** | **2026-05-24** |
+
+---
+
+## Tech Command Center (New)
+
+- **Live Comms tab**: Natural agent conversation feed showing all 6 agents talking
+  - "Product Manager: Task received — analyzing the specification and drafting the PRD."
+  - "System Architect: Selecting technology stack (20%)"
+  - "Code Writer: I've completed the Source Code and submitted it for review."
+  - "Test Engineer: Generating test patterns (20%)"
+  - "Code Reviewer: Running security scan (30%)"
+  - "DevOps: Generating Dockerfile (20%)"
+- **Decisions Board**: 6-phase decision log extracted from artifacts
+  - Product Scope, Tech Stack, Implementation, Test Strategy, Review Score, Deployment
+- **Pipeline Map**: Visual phase progression with icons
+- **Agent Status Board**: 6 agent cards with progress bars and state indicators
+- **Dark theme CSS**: Command center aesthetic with neon accents
+- **Dialogue synthesis**: Formal protocol messages auto-translated to natural conversation
 
 ---
 
@@ -20,9 +39,15 @@
 python demos/run_demo.py
 # Produces all 6 artifacts: prd, tech_spec, source_code, test_suite, review_report, deployment_config
 # Phase: complete
+# 50+ messages, 57+ dialogue entries
 
 pytest -q                        # 205 passed
 python -m ruff check codeforge tests  # All checks passed!
+
+# CLI
+codeforge start "Build a todo app"
+codeforge demo
+codeforge dashboard              # Launches streamlit command center
 ```
 
 ---
@@ -36,7 +61,7 @@ INIT -> REQUIREMENTS -> ARCHITECTURE -> IMPLEMENTATION -> TESTING -> REVIEW -> D
 artifact: prd    tech_spec    source_code   test_suite    review_report   deployment_config
 ```
 
-Approval gates auto-approve for `REQUIREMENTS`, `ARCHITECTURE`, and `DEPLOYMENT`. All other phases auto-advance on artifact submission.
+All phases auto-advance. Gated phases (requirements, architecture, deployment) auto-approve. All 6 agents receive llm_client.
 
 ---
 
@@ -48,76 +73,35 @@ codeforge/
   agents/        -- product_manager, system_architect, code_writer, test_engineer,
                     code_reviewer, devops, llm_mixin
   prompts/       -- LLM prompt templates for all 6 agents
-  api/           -- PipelineSession, FastAPI routes, state bridge
-  dashboard/     -- Streamlit UI with pipeline, agents, artifacts, messages, approvals
+  api/           -- PipelineSession with dialogue/decision synthesis, FastAPI routes
+  dashboard/     -- Streamlit tech command center (dark theme, live comms, decisions)
   git/           -- repo_manager, commit_manager, branch_manager
   plugins/       -- plugin loader, registry, example plugins
   utils/         -- logging, config, exceptions
+  cli.py         -- CLI: codeforge start/demo/dashboard
 ```
-
----
-
-## Agents (6)
-
-| Agent | Role | Key Files |
-|-------|------|-----------|
-| ProductManagerAgent | Generates PRD from spec | agent.py, prd_generator.py |
-| SystemArchitectAgent | Generates tech spec + file tree | agent.py |
-| CodeWriterAgent | Generates structured code files | agent.py, structured_editor.py, skeleton_builder.py, dependency_analyzer.py, symbol_tracker.py, syntax_validator.py, batch_implementer.py |
-| TestEngineerAgent | Generates test suite with 5 patterns | agent.py, pattern_generators.py, fixture_builder.py, coverage_analyzer.py |
-| CodeReviewerAgent | 6-layer review with auto-fix | agent.py, analyzers.py, auto_fixer.py, severity.py |
-| DevOpsAgent | Docker, Compose, CI/CD generation | agent.py, docker_generator.py, compose_generator.py, cicd_generator.py |
-
----
-
-## LLM Integration
-
-- All 6 agents accept `llm_client` via `LlmMixin`
-- LLM-first with deterministic fallback (works without Ollama)
-- Config: `OLLAMA_HOST=http://localhost:11434`, model: `llama3.2`
-- Prompt templates in `codeforge/prompts/`
-
----
-
-## Dashboard
-
-```powershell
-streamlit run codeforge/dashboard/app.py
-```
-
-Tabs: Pipeline Status, Agents, Artifacts, Messages, Approvals.
-
----
-
-## Tests
-
-- 205 tests across unit + integration + E2E
-- Test files: `tests/test_core/`, `tests/test_agents/`, `tests/test_git/`
-- E2E: `tests/test_core/test_e2e_pipeline.py` (4 tests)
-- Demo: `demos/run_demo.py`, `demos/e2e_demo.py`
 
 ---
 
 ## Recent Fixes (2026-05-24)
 
-### Pipeline Auto-Advance Fix
-- **Problem**: Pipeline stopped at `IMPLEMENTATION` phase. Only `REQUIREMENTS`, `ARCHITECTURE`, `DEPLOYMENT` triggered approval gates that advanced phases. `IMPLEMENTATION`, `TESTING`, `REVIEW` had no auto-advance mechanism.
-- **Fix**: `handle_artifact_submission` now auto-transitions through non-gated phases. `_next_phase_after()` replaces hardcoded phase maps. Context now passed to downstream agents (source_code to test_engineer and code_reviewer, tech_spec to devops).
-- **Result**: Pipeline flows `init -> ... -> complete` with all 6 artifacts.
+### Session Dialogue Capture Fix
+- **Problem**: `subscribe("all", ...)` only captured messages with `recipient="all"` (system events). Agent-to-agent messages (task_assignment, artifact_submission, status_update) were invisible.
+- **Fix**: Subscribe `_capture_message` to every agent channel + orchestrator + human_operator in `register_agents()`.
+- **Result**: 50+ messages captured, 57+ dialogue entries synthesized.
 
-### Agent Registry + LLM Wiring Fix
-- **Problem**: Agent IDs like `pm-1` didn't match role names in `PHASE_AGENTS`. `llm_client` only wired to PM and Architect.
-- **Fix**: Agent IDs use role names (`product_manager`, `system_architect`, etc.). All 6 agents receive `llm_client`.
-- **Bonus**: `human_operator` noop handler silences dead-letter warnings.
+### Dialogue & Decision Synthesis
+- **Added**: `_synthesize_dialogue()` converts formal messages to natural chat bubbles
+- **Added**: `_synthesize_decisions()` extracts key decisions from artifact contents
+- **Added**: `_message_to_dialogue()` handles task, artifact, status, approval, and system event types
 
 ---
 
 ## Next Steps / Future Work
 
-- [ ] Dashboard: show artifact content details (expandable JSON/code)
-- [ ] Parse fenced code blocks from LLM responses for code_writer
+- [ ] Dashboard: parse fenced code blocks from LLM responses for code_writer
+- [ ] Dashboard: real-time refresh (poll state periodically)
 - [ ] Parse reviewer LLM findings into real `ReviewFinding` objects
 - [ ] Add mock LLM unit tests for each agent path
-- [ ] Package CLI entry point: `codeforge start --spec "..." --output ./out`
 - [ ] `.env.example` for LLM config
-- [ ] Real file output to disk (currently artifacts are in-memory dicts)
+- [ ] Real file output to disk with artifact content

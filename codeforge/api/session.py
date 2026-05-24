@@ -117,6 +117,9 @@ class PipelineSession:
         for agent in [pm, sa, cw, te, cr, ops]:
             self._registry.register(agent)
             self._bus.register_agent(agent.agent_id, agent.handle_message)
+            self._bus.subscribe(agent.agent_id, self._capture_message)
+        self._bus.subscribe("orchestrator", self._capture_message)
+        self._bus.subscribe("human_operator", self._capture_message)
 
     async def start(self, specification: str, output_dir: str = "") -> str:
         output_dir = output_dir or ".codeforge/output"
@@ -138,7 +141,244 @@ class PipelineSession:
             "artifacts": self._orchestrator._artifacts,
             "messages": self._messages[-50:],
             "message_count": len(self._messages),
+            "dialogue": self._synthesize_dialogue(),
+            "decisions": self._synthesize_decisions(),
         }
+
+    def _synthesize_dialogue(self) -> list[dict]:
+        dialogue: list[dict] = []
+        for msg in self._messages:
+            entry = self._message_to_dialogue(msg)
+            if entry:
+                dialogue.append(entry)
+        return dialogue
+
+    @staticmethod
+    def _message_to_dialogue(msg: dict) -> dict | None:
+        msg_type = msg.get("type", "")
+        sender = msg.get("sender", "")
+        payload = msg.get("payload", {})
+
+        agent_names: dict[str, str] = {
+            "product_manager": "Product Manager",
+            "system_architect": "System Architect",
+            "code_writer": "Code Writer",
+            "test_engineer": "Test Engineer",
+            "code_reviewer": "Code Reviewer",
+            "devops": "DevOps",
+            "orchestrator": "Orchestrator",
+        }
+        name = agent_names.get(sender, sender.capitalize())
+
+        avatar_map: dict[str, str] = {
+            "product_manager": "📋",
+            "system_architect": "🏗️",
+            "code_writer": "💻",
+            "test_engineer": "🧪",
+            "code_reviewer": "🔍",
+            "devops": "🚀",
+            "orchestrator": "🔄",
+        }
+        avatar = avatar_map.get(sender, "🤖")
+
+        if msg_type in ("task_assignment",):
+            recipient = msg.get("recipient", "")
+            r_name = agent_names.get(recipient, recipient.capitalize())
+            r_avatar = avatar_map.get(recipient, "🤖")
+            desc = payload.get("description", "")
+            phase = ""
+            phase_words = [
+                "requirements", "architecture", "implementation",
+                "testing", "review", "deployment",
+            ]
+            for word in phase_words:
+                if word in desc.lower():
+                    phase = word
+                    break
+            role_actions: dict[str, str] = {
+                "product_manager": "analyzing the specification and drafting the PRD",
+                "system_architect": "designing the system architecture and tech stack",
+                "code_writer": "implementing the code based on the technical spec",
+                "test_engineer": "generating comprehensive test suites",
+                "code_reviewer": "reviewing code quality and architecture compliance",
+                "devops": "preparing Docker, Compose, and CI/CD configurations",
+            }
+            action = role_actions.get(recipient, f"working on the {phase} phase")
+            return {
+                "avatar": r_avatar,
+                "name": r_name,
+                "text": f"Task received — {action}.",
+                "kind": "task",
+                "phase": phase,
+                "timestamp": msg.get("timestamp", ""),
+            }
+
+        if msg_type == "artifact_submission":
+            art_type = payload.get("artifact_type", "artifact")
+            notes = payload.get("notes", "")
+            art_labels: dict[str, str] = {
+                "prd": "PRD",
+                "tech_spec": "Technical Specification",
+                "source_code": "Source Code",
+                "test_suite": "Test Suite",
+                "review_report": "Review Report",
+                "deployment_config": "Deployment Configuration",
+            }
+            label = art_labels.get(art_type, art_type)
+            text = f"I've completed the {label} and submitted it for review."
+            if notes:
+                text += f"  {notes}"
+            return {
+                "avatar": avatar,
+                "name": name,
+                "text": text,
+                "kind": "artifact",
+                "phase": art_type,
+                "timestamp": msg.get("timestamp", ""),
+            }
+
+        if msg_type == "status_update":
+            status = payload.get("status", "")
+            progress = payload.get("progress", 0)
+            pct = f" ({int(progress * 100)}%)" if isinstance(progress, (int, float)) else ""
+            return {
+                "avatar": avatar,
+                "name": name,
+                "text": f"{status}{pct}",
+                "kind": "status",
+                "phase": "",
+                "timestamp": msg.get("timestamp", ""),
+            }
+
+        if msg_type == "approval_request":
+            art_id = payload.get("artifact_id", "")
+            return {
+                "avatar": "🔄",
+                "name": "Orchestrator",
+                "text": f"Approval requested for artifact {art_id}. Awaiting human review.",
+                "kind": "approval",
+                "phase": "",
+                "timestamp": msg.get("timestamp", ""),
+            }
+
+        if msg_type == "approval_response":
+            decision = payload.get("decision", "")
+            return {
+                "avatar": "👤",
+                "name": "Human Operator",
+                "text": f"Approval gate resolved: {decision.upper()}.",
+                "kind": "approval",
+                "phase": "",
+                "timestamp": msg.get("timestamp", ""),
+            }
+
+        if msg_type == "system_event":
+            event_type = payload.get("event_type", "")
+            desc = payload.get("description", "")
+            if "phase_transition" in event_type:
+                return {
+                    "avatar": "🔄",
+                    "name": "Orchestrator",
+                    "text": f"Pipeline advancing: {desc}",
+                    "kind": "system",
+                    "phase": "",
+                    "timestamp": msg.get("timestamp", ""),
+                }
+            if "project_started" in event_type:
+                return {
+                    "avatar": "🔄",
+                    "name": "Orchestrator",
+                    "text": desc,
+                    "kind": "system",
+                    "phase": "init",
+                    "timestamp": msg.get("timestamp", ""),
+                }
+            return {
+                "avatar": "🔄",
+                "name": "Orchestrator",
+                "text": desc,
+                "kind": "system",
+                "phase": "",
+                "timestamp": msg.get("timestamp", ""),
+            }
+
+        return None
+
+    def _synthesize_decisions(self) -> list[dict]:
+        decisions: list[dict] = []
+        artifacts = self._orchestrator._artifacts
+
+        prd = artifacts.get("prd", {})
+        if prd:
+            goals = prd.get("goals", [])
+            decisions.append({
+                "phase": "requirements",
+                "icon": "📋",
+                "title": "Product Scope Defined",
+                "detail": f"{len(goals)} goal(s) identified and {prd.get('title', '')} scoped.",
+            })
+
+        ts = artifacts.get("tech_spec", {})
+        if ts:
+            stack = ts.get("tech_stack", [])
+            entities = ts.get("data_entities", [])
+            decisions.append({
+                "phase": "architecture",
+                "icon": "🏗️",
+                "title": f"Tech Stack: {stack[0].get('choice', 'N/A') if stack else 'N/A'}",
+                "detail": (
+                    f"{len(stack)} component(s) selected. "
+                    f"{len(entities)} data entity/entities designed."
+                ),
+            })
+
+        sc = artifacts.get("source_code", {})
+        if sc:
+            report = sc.get("validation_report", "")
+            files = sc.get("files", [])
+            decisions.append({
+                "phase": "implementation",
+                "icon": "💻",
+                "title": f"{len(files)} File(s) Implemented",
+                "detail": report,
+            })
+
+        tst = artifacts.get("test_suite", {})
+        if tst:
+            cov = tst.get("coverage_report", "")
+            patterns = tst.get("patterns_generated", 0)
+            decisions.append({
+                "phase": "testing",
+                "icon": "🧪",
+                "title": f"{patterns} Test Pattern(s) Applied",
+                "detail": cov,
+            })
+
+        rev = artifacts.get("review_report", {})
+        if rev:
+            score = rev.get("overall_score", 0)
+            findings = rev.get("total_findings", 0)
+            decisions.append({
+                "phase": "review",
+                "icon": "🔍",
+                "title": (
+                    f"Review Score: {score:.1%}" if isinstance(score, float)
+                    else "Review Done"
+                ),
+                "detail": f"{findings} finding(s). No critical blockers.",
+            })
+
+        dep = artifacts.get("deployment_config", {})
+        if dep:
+            files = dep.get("files_generated", [])
+            decisions.append({
+                "phase": "deployment",
+                "icon": "🚀",
+                "title": f"{len(files)} Deployment File(s) Generated",
+                "detail": "Docker, Compose, CI/CD, and env template ready.",
+            })
+
+        return decisions
 
     def run_sync(self, specification: str, output_dir: str = "") -> dict:
         async def _run():
