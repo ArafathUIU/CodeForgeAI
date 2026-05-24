@@ -82,6 +82,8 @@ def main():
     session = get_session()
     state = session.get_state()
 
+    _render_project_form(session)
+
     tab1, tab2, tab3, tab4 = st.tabs([
         "Live Comms", "Pipeline", "Decisions", "Artifacts",
     ])
@@ -99,37 +101,61 @@ def main():
 def render_conversation(session: PipelineSession, state: dict):
     st.header("Agent Conversation Feed")
     dialogue = state.get("dialogue", [])
+    raw_messages = state.get("messages", [])
 
-    col_a, col_b = st.columns([3, 1])
+    col_a, col_b, col_c = st.columns([2, 1, 1])
     with col_b:
-        kinds = ["All"] + sorted({d.get("kind", "") for d in dialogue if d.get("kind")})
+        kinds = ["All"] + (
+            sorted({d.get("kind", "") for d in dialogue if d.get("kind")})
+            if dialogue else []
+        )
         kind_filter = st.selectbox("Filter", kinds, key="dialogue_filter")
+    with col_c:
+        show_raw = st.checkbox("Show raw protocol", key="show_raw_msgs",
+                               value=not bool(dialogue))
 
     with col_a:
         st.caption(
-            f"Showing {len(dialogue)} conversation entries "
-            f"({state['message_count']} raw messages)"
+            f"Dialogue: {len(dialogue)} entries | "
+            f"Messages: {state.get('message_count', 0)}"
         )
 
-    if not dialogue:
-        st.info("No conversation yet. Start a project to see agents talk.")
-        st.subheader("Start New Project")
-        _render_project_form(session)
+    if not dialogue and not raw_messages:
+        st.info("No messages yet. Start a project above to see agents talk.")
         return
 
     with st.container(height=520):
-        for entry in reversed(dialogue[-60:]):
-            if kind_filter != "All" and entry.get("kind") != kind_filter:
-                continue
-            st.markdown(
-                f'<div class="chat-bubble">'
-                f'<span class="chat-avatar">{entry["avatar"]}</span>'
-                f'<span class="chat-name">{entry["name"]}</span>'
-                f'<span class="chat-ts">{entry["timestamp"][:19]}</span>'
-                f'<div class="chat-text">{entry["text"]}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+        if show_raw and raw_messages:
+            st.caption("Raw protocol messages:")
+            for msg in reversed(raw_messages[-40:]):
+                mt = msg.get("type", "?")
+                sn = msg.get("sender", "?")
+                rc = msg.get("recipient", "?")
+                pl = str(msg.get("payload", {}))[:100]
+                st.markdown(
+                    f'<div class="chat-bubble" style="border-left-color:#607d8b;">'
+                    f'<span class="chat-avatar">📡</span>'
+                    f'<span class="chat-name">{sn} → {rc}</span>'
+                    f'<span class="chat-ts">{mt}</span>'
+                    f'<div class="chat-text">{pl}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        elif dialogue:
+            for entry in reversed(dialogue[-60:]):
+                if kind_filter != "All" and entry.get("kind") != kind_filter:
+                    continue
+                st.markdown(
+                    f'<div class="chat-bubble">'
+                    f'<span class="chat-avatar">{entry["avatar"]}</span>'
+                    f'<span class="chat-name">{entry["name"]}</span>'
+                    f'<span class="chat-ts">{entry["timestamp"][:19]}</span>'
+                    f'<div class="chat-text">{entry["text"]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.info("No dialogue entries synthesized. Check 'Show raw protocol' ")
 
 
 def render_control_room(session: PipelineSession, state: dict):
@@ -212,11 +238,18 @@ def render_control_room(session: PipelineSession, state: dict):
                 f"{cfg['color']}" if is_current else "#607d8b"
             )
 
-    st.subheader("Start New Project")
-    _render_project_form(session)
-
 
 def _render_project_form(session: PipelineSession):
+    has_project = bool(session.get_state().get("project_id"))
+    if has_project:
+        with st.expander("Start New Project", expanded=False):
+            _project_form_body(session)
+    else:
+        st.subheader("Start New Project")
+        _project_form_body(session)
+
+
+def _project_form_body(session: PipelineSession):
     col1, col2 = st.columns([3, 1])
     with col1:
         spec = st.text_area(

@@ -155,9 +155,10 @@ class PipelineSession:
 
     @staticmethod
     def _message_to_dialogue(msg: dict) -> dict | None:
-        msg_type = msg.get("type", "")
+        msg_type = PipelineSession._normalize_type(msg.get("type", ""))
         sender = msg.get("sender", "")
         payload = msg.get("payload", {})
+        recipient = msg.get("recipient", "")
 
         agent_names: dict[str, str] = {
             "product_manager": "Product Manager",
@@ -168,23 +169,21 @@ class PipelineSession:
             "devops": "DevOps",
             "orchestrator": "Orchestrator",
         }
-        name = agent_names.get(sender, sender.capitalize())
-
         avatar_map: dict[str, str] = {
-            "product_manager": "📋",
-            "system_architect": "🏗️",
-            "code_writer": "💻",
-            "test_engineer": "🧪",
-            "code_reviewer": "🔍",
-            "devops": "🚀",
-            "orchestrator": "🔄",
+            "product_manager": "\U0001f4cb",
+            "system_architect": "\U0001f3d7\ufe0f",
+            "code_writer": "\U0001f4bb",
+            "test_engineer": "\U0001f9ea",
+            "code_reviewer": "\U0001f50d",
+            "devops": "\U0001f680",
+            "orchestrator": "\U0001f504",
         }
-        avatar = avatar_map.get(sender, "🤖")
+        name = agent_names.get(sender, sender.capitalize() if sender else "System")
+        avatar = avatar_map.get(sender, "\U0001f916")
 
-        if msg_type in ("task_assignment",):
-            recipient = msg.get("recipient", "")
+        if msg_type == "task_assignment":
             r_name = agent_names.get(recipient, recipient.capitalize())
-            r_avatar = avatar_map.get(recipient, "🤖")
+            r_avatar = avatar_map.get(recipient, "\U0001f916")
             desc = payload.get("description", "")
             phase = ""
             phase_words = [
@@ -196,18 +195,28 @@ class PipelineSession:
                     phase = word
                     break
             role_actions: dict[str, str] = {
-                "product_manager": "analyzing the specification and drafting the PRD",
-                "system_architect": "designing the system architecture and tech stack",
-                "code_writer": "implementing the code based on the technical spec",
+                "product_manager": (
+                    "analyzing the specification and drafting the PRD"
+                ),
+                "system_architect": (
+                    "designing the system architecture and tech stack"
+                ),
+                "code_writer": (
+                    "implementing the code based on the technical spec"
+                ),
                 "test_engineer": "generating comprehensive test suites",
-                "code_reviewer": "reviewing code quality and architecture compliance",
-                "devops": "preparing Docker, Compose, and CI/CD configurations",
+                "code_reviewer": (
+                    "reviewing code quality and architecture compliance"
+                ),
+                "devops": (
+                    "preparing Docker, Compose, and CI/CD configurations"
+                ),
             }
             action = role_actions.get(recipient, f"working on the {phase} phase")
             return {
                 "avatar": r_avatar,
                 "name": r_name,
-                "text": f"Task received — {action}.",
+                "text": f"Task received \u2014 {action}.",
                 "kind": "task",
                 "phase": phase,
                 "timestamp": msg.get("timestamp", ""),
@@ -225,7 +234,7 @@ class PipelineSession:
                 "deployment_config": "Deployment Configuration",
             }
             label = art_labels.get(art_type, art_type)
-            text = f"I've completed the {label} and submitted it for review."
+            text = f"I have completed the {label} and submitted it for review."
             if notes:
                 text += f"  {notes}"
             return {
@@ -240,7 +249,11 @@ class PipelineSession:
         if msg_type == "status_update":
             status = payload.get("status", "")
             progress = payload.get("progress", 0)
-            pct = f" ({int(progress * 100)}%)" if isinstance(progress, (int, float)) else ""
+            pct = (
+                f" ({int(progress * 100)}%)"
+                if isinstance(progress, (int, float)) and progress > 0
+                else ""
+            )
             return {
                 "avatar": avatar,
                 "name": name,
@@ -253,9 +266,12 @@ class PipelineSession:
         if msg_type == "approval_request":
             art_id = payload.get("artifact_id", "")
             return {
-                "avatar": "🔄",
+                "avatar": "\U0001f504",
                 "name": "Orchestrator",
-                "text": f"Approval requested for artifact {art_id}. Awaiting human review.",
+                "text": (
+                    f"Approval requested for artifact {art_id}. "
+                    f"Awaiting human review."
+                ),
                 "kind": "approval",
                 "phase": "",
                 "timestamp": msg.get("timestamp", ""),
@@ -264,7 +280,7 @@ class PipelineSession:
         if msg_type == "approval_response":
             decision = payload.get("decision", "")
             return {
-                "avatar": "👤",
+                "avatar": "\U0001f464",
                 "name": "Human Operator",
                 "text": f"Approval gate resolved: {decision.upper()}.",
                 "kind": "approval",
@@ -277,7 +293,7 @@ class PipelineSession:
             desc = payload.get("description", "")
             if "phase_transition" in event_type:
                 return {
-                    "avatar": "🔄",
+                    "avatar": "\U0001f504",
                     "name": "Orchestrator",
                     "text": f"Pipeline advancing: {desc}",
                     "kind": "system",
@@ -286,15 +302,24 @@ class PipelineSession:
                 }
             if "project_started" in event_type:
                 return {
-                    "avatar": "🔄",
+                    "avatar": "\U0001f504",
                     "name": "Orchestrator",
                     "text": desc,
                     "kind": "system",
                     "phase": "init",
                     "timestamp": msg.get("timestamp", ""),
                 }
+            if "project_complete" in event_type:
+                return {
+                    "avatar": "\U0001f504",
+                    "name": "Orchestrator",
+                    "text": desc,
+                    "kind": "system",
+                    "phase": "complete",
+                    "timestamp": msg.get("timestamp", ""),
+                }
             return {
-                "avatar": "🔄",
+                "avatar": "\U0001f504",
                 "name": "Orchestrator",
                 "text": desc,
                 "kind": "system",
@@ -302,7 +327,31 @@ class PipelineSession:
                 "timestamp": msg.get("timestamp", ""),
             }
 
-        return None
+        # fallback: never return None when a message exists
+        short_payload = str(payload)[:120]
+        fallback_text = f"[{msg_type}] {short_payload}" if short_payload else f"[{msg_type}]"
+        return {
+            "avatar": avatar,
+            "name": name or sender or "Agent",
+            "text": fallback_text,
+            "kind": "raw",
+            "phase": "",
+            "timestamp": msg.get("timestamp", ""),
+        }
+
+    @staticmethod
+    def _normalize_type(raw: str) -> str:
+        if not raw:
+            return ""
+        for suffix in (
+            "task_assignment", "artifact_submission", "status_update",
+            "approval_request", "approval_response", "system_event",
+            "clarification_request", "clarification_response",
+            "blockage_report", "revision_request", "conflict_escalation",
+        ):
+            if raw.endswith(suffix):
+                return suffix
+        return raw
 
     def _synthesize_decisions(self) -> list[dict]:
         decisions: list[dict] = []
