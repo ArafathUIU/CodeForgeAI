@@ -63,3 +63,49 @@ class PRDGenerator:
         if "user authentication" in intent.inferred_features:
             cases.append("Unauthenticated user attempts protected actions.")
         return cases
+
+    def generate_from_dict(self, data: dict, specification: str) -> PRD:
+        scope_data = data.get("scope", {})
+        if isinstance(scope_data, dict):
+            in_scope = scope_data.get("in_scope", [])
+            out_scope = scope_data.get("out_of_scope", [])
+            assumptions = scope_data.get("assumptions", [])
+        else:
+            in_scope, out_scope, assumptions = [], [], []
+
+        prd = PRD(
+            id=f"prd-{uuid.uuid4().hex[:8]}",
+            title=data.get("title", "Untitled App"),
+            summary=data.get("summary", specification[:120]),
+            goals=data.get("goals", [specification]),
+            scope=ScopeBoundary(
+                in_scope=in_scope,
+                out_of_scope=out_scope,
+                assumptions=assumptions,
+            ),
+            edge_cases=data.get("edge_cases", []),
+            open_questions=data.get("open_questions", []),
+            success_metrics=data.get("success_metrics", []),
+        )
+
+        stories_data = data.get("user_stories", [])
+        for idx, story in enumerate(stories_data, start=1):
+            criteria_data = story.get("acceptance_criteria", [])
+            criteria = [
+                AcceptanceCriterion(
+                    id=c.get("id", f"AC-{idx:03d}-{j}"),
+                    description=c.get("description", ""),
+                )
+                for j, c in enumerate(criteria_data, start=1)
+            ]
+            us = UserStory(
+                id=story.get("id", f"US-{idx:03d}"),
+                actor=story.get("actor", "User"),
+                capability=story.get("capability", ""),
+                benefit=story.get("benefit", ""),
+                acceptance_criteria=criteria,
+                priority=story.get("priority", "medium"),
+            )
+            prd.add_user_story(us)
+
+        return prd
