@@ -28,8 +28,11 @@ class TestEndToEndPipeline:
                 )
                 assert pid
                 state = session.get_state()
-                assert state["phase"] in ("requirements", "architecture",
-                                          "implementation", "init")
+                assert state["phase"] in (
+                    "init", "requirements", "architecture",
+                    "implementation", "testing", "review",
+                    "deployment", "complete",
+                )
                 assert state["message_count"] > 0
                 return pid
 

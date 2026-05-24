@@ -267,6 +267,19 @@ class Orchestrator:
 
                 if phase == Phase.TESTING:
                     tech_spec = self.get_artifact("tech_spec")
+                    source_code = self.get_artifact("source_code")
+                    if tech_spec:
+                        context["tech_spec"] = tech_spec
+                    if source_code:
+                        context["source_code"] = source_code
+
+                if phase == Phase.REVIEW:
+                    source_code = self.get_artifact("source_code")
+                    if source_code:
+                        context["source_code"] = source_code
+
+                if phase == Phase.DEPLOYMENT:
+                    tech_spec = self.get_artifact("tech_spec")
                     if tech_spec:
                         context["tech_spec"] = tech_spec
 
@@ -358,21 +371,31 @@ class Orchestrator:
 
         logger.info(f"Received artifact: {artifact_id} ({artifact_type}) from {message.sender}")
 
+        next_phase = self._next_phase_after(self._pipeline.phase)
+        if next_phase is None:
+            return
+
         if self._requires_approval(self._pipeline.phase):
             gate = await self._create_approval_gate(artifact_id, self._pipeline.phase)
             await self._auto_approve(gate)
+        else:
+            await self.transition_to(next_phase)
+
+    @staticmethod
+    def _next_phase_after(phase: Phase) -> Phase | None:
+        order = PHASE_ORDER
+        try:
+            idx = order.index(phase)
+            return order[idx + 1] if idx + 1 < len(order) else None
+        except (ValueError, IndexError):
+            return None
 
     async def _auto_approve(self, gate: ApprovalGate) -> None:
         gate.status = "resolved"
         gate.decision = "approve"
         gate.comments = "Auto-approved for pipeline flow"
 
-        next_phase_map = {
-            Phase.REQUIREMENTS: Phase.ARCHITECTURE,
-            Phase.ARCHITECTURE: Phase.IMPLEMENTATION,
-            Phase.DEPLOYMENT: Phase.COMPLETE,
-        }
-        next_phase = next_phase_map.get(self._pipeline.phase)
+        next_phase = self._next_phase_after(self._pipeline.phase)
         if next_phase:
             await self.transition_to(next_phase)
 
@@ -428,12 +451,7 @@ class Orchestrator:
             return
 
         if decision == "approve":
-            next_phase_map = {
-                Phase.REQUIREMENTS: Phase.ARCHITECTURE,
-                Phase.ARCHITECTURE: Phase.IMPLEMENTATION,
-                Phase.DEPLOYMENT: Phase.COMPLETE,
-            }
-            next_phase = next_phase_map.get(self._pipeline.phase)
+            next_phase = self._next_phase_after(self._pipeline.phase)
             if next_phase:
                 await self.transition_to(next_phase)
         elif decision == "reject":
