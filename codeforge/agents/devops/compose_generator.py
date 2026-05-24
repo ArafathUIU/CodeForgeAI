@@ -7,7 +7,6 @@ volume mounts, environment variables, and health checks.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -41,7 +40,7 @@ class ComposeGenerator:
                 lines.append(f"    build: {svc.build_context}")
             if svc.image:
                 lines.append(f"    image: {svc.image}")
-            lines.append(f'    ports:')
+            lines.append('    ports:')
             lines.append(f'      - "{svc.port}:{svc.port}"')
 
             if svc.depends_on:

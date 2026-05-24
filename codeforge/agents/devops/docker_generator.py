@@ -7,7 +7,6 @@ stages, non-root users, and health check configurations.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -51,7 +50,8 @@ class DockerfileGenerator:
             "",
             f"USER {config.non_root_user}",
             "",
-            f'CMD ["uvicorn", "{config.app_name}.main:app", "--host", "0.0.0.0", "--port", "{config.port}"]',
+            f'CMD ["uvicorn", "{config.app_name}.main:app", '
+            f'"--host", "0.0.0.0", "--port", "{config.port}"]',
         ]
         return "\n".join(lines) + "\n"
 
