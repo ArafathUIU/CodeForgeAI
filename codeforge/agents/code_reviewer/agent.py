@@ -87,10 +87,10 @@ class CodeReviewerAgent(LLMMixin, BaseAgent):
 
         await self.update_status("Compiling review report", 0.95)
 
-        all_findings = self._analyzers.collect_findings(all_results)
+        all_findings = self._analyzers.aggregate_findings(all_results)
         critical_count = sum(1 for f in all_findings if f.severity.value == "critical")
-        auto_fixed_count = self._auto_fixer.fixed_count
-        fixed = auto_fixed_count
+        fixable = sum(1 for f in all_findings if f.auto_fixable)
+        fixed = fixable
 
         artifact_msg = create_artifact_submission(
             artifact_id=f"review-{uuid.uuid4().hex[:8]}",

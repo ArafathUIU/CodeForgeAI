@@ -89,8 +89,8 @@ class ProductManagerAgent(LLMMixin, BaseAgent):
             f"Please design the architecture \u2014 I need a clean tech stack, "
             f"data model, and API contract.",
             reasoning=(
-                f"Parsed user intent from specification. "
-                f"Product scope is clearly defined for MVP delivery."
+                "Parsed user intent from specification. "
+                "Product scope is clearly defined for MVP delivery."
             ),
             plan_snippet=(
                 f"Goals: {', '.join(prd.goals[:3])}. "

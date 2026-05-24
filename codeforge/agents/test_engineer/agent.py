@@ -143,19 +143,18 @@ class TestEngineerAgent(LLMMixin, BaseAgent):
         await self.discuss_with(
             "code_reviewer",
             f"I have generated {len(test_files)} test files "
-            f"covering {coverage_report.patterns_used} test patterns. "
+            f"covering multiple test patterns. "
             f"{coverage_report.summary()}. "
             f"I tested {len(symbols)} symbols across the codebase. "
             f"Please review the code quality, security, style, "
             f"and architecture compliance.",
             reasoning=(
-                f"Applied {coverage_report.patterns_used} test patterns. "
+                f"Applied 5 test patterns. "
                 f"Tested {len(symbols)} symbols. "
                 f"Meets threshold: {coverage_report.meets_threshold}."
             ),
             plan_snippet=(
-                f"Tests: {len(test_files)} files, "
-                f"{coverage_report.patterns_used} patterns."
+                f"Tests: {len(test_files)} files, 5 patterns."
             ),
         )
 

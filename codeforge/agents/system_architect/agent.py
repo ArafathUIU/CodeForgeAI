@@ -35,6 +35,14 @@ from codeforge.prompts.system_architect import (
 )
 
 
+def _safe_attr(obj, attr: str, default: str = "") -> str:
+    if hasattr(obj, attr):
+        return str(getattr(obj, attr))
+    if isinstance(obj, dict):
+        return str(obj.get(attr, default))
+    return default
+
+
 class SystemArchitectAgent(LLMMixin, BaseAgent):
     """Turns PRD artifacts into implementation-ready technical specifications."""
 
@@ -103,8 +111,30 @@ class SystemArchitectAgent(LLMMixin, BaseAgent):
             )
 
         stack_summary = ", ".join(
-            f"{t.get('category', '')}:{t.get('choice', '')}"
+            f"{_safe_attr(t, 'category')}:{_safe_attr(t, 'choice')}"
             for t in spec.tech_stack[:4]
+        )
+        await self.discuss_with(
+            "code_writer",
+            f"Architecture is ready for \u201c{spec.title}\u201d. "
+            f"Stack: {stack_summary}. "
+            f"I designed {len(spec.data_entities)} data entities "
+            f"and {len(spec.api_endpoints)} API endpoints. "
+            f"File tree has {len(spec.file_tree)} nodes "
+            f"across the project structure. "
+            f"I assessed {len(spec.risks)} risks \u2014 "
+            f"please implement following the file tree structure "
+            f"and API contracts.",
+            reasoning=(
+                f"Selected stack based on {spec.title} requirements. "
+                f"Data model covers {len(spec.data_entities)} entities. "
+                f"API contracts follow RESTful conventions."
+            ),
+            plan_snippet=(
+                f"Stack: {stack_summary}. "
+                f"Entities: {len(spec.data_entities)}. "
+                f"Endpoints: {len(spec.api_endpoints)}."
+            ),
         )
         await self.discuss_with(
             "code_writer",

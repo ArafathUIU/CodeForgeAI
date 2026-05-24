@@ -1,6 +1,6 @@
-"""Streamlit Dashboard for CodeForge — Tech Command Center.
+"""Streamlit Dashboard for CodeForge — Messenger-style command center.
 
-Agent conversation feed, decision board, pipeline map, artifact explorer.
+Clean group chat with bubbles, agent avatars, reasoning, and plan threads.
 """
 
 from __future__ import annotations
@@ -16,85 +16,86 @@ PHASES_LIST = [
 
 CSS = """
 <style>
-/* Dark tech theme */
-.main { background: #0a0e17; }
-.stApp { background: #0a0e17; color: #e0e6ed; }
-h1, h2, h3, h4 { color: #00e5ff !important; }
-.stMetric label { color: #607d8b !important; }
-.stMetric [data-testid="stMetricValue"] { color: #00e5ff !important; }
-.stTextInput>div>div>input, .stTextArea textarea {
-    background: #151d2b !important; color: #e0e6ed !important;
-    border: 1px solid #1e3a5f !important; border-radius: 6px;
+/* Dark messenger theme */
+.main, .stApp { background: #0d1117; color: #c9d1d9; }
+h1, h2, h3 { color: #58a6ff !important; }
+.stMetric label { color: #8b949e !important; font-size: 0.7em !important; }
+.stMetric [data-testid="stMetricValue"] { color: #58a6ff !important; }
+input, textarea, .stSelectbox>div>div {
+    background: #161b22 !important; color: #c9d1d9 !important;
+    border: 1px solid #30363d !important; border-radius: 8px;
 }
-.stSelectbox>div>div { background: #151d2b !important; color: #e0e6ed !important; }
 .stButton>button {
-    background: #1e3a5f !important; color: #00e5ff !important;
-    border: 1px solid #00e5ff44 !important; border-radius: 6px;
+    background: #238636 !important; color: #fff !important;
+    border: 1px solid #2ea043 !important; border-radius: 8px; font-weight: 600;
 }
-.stButton>button:hover { background: #2a4a7f !important; }
+.stButton>button:hover { background: #2ea043 !important; }
 
-/* Chat rows — group chat style */
-.chat-row {
-    margin: 6px 0;
-    padding: 8px 12px;
-    border-radius: 6px;
-    background: #111927;
-    border: 1px solid #1a2a44;
+/* Chat container */
+.chat-container {
+    max-height: 62vh; overflow-y: auto; padding: 8px 4px;
+    background: #0d1117; border: 1px solid #21262d; border-radius: 10px;
 }
-.chat-row.thinking {
-    border-left: 3px solid #ffab00;
-    animation: pulse 1.5s ease-in-out infinite;
+.msg-group { margin-bottom: 14px; }
+.msg-row { display: flex; align-items: flex-start; margin: 2px 0; }
+.msg-avatar { font-size: 20px; width: 34px; text-align: center; flex-shrink: 0; padding-top: 2px; }
+.msg-body { margin-left: 8px; max-width: 85%; }
+.msg-sender {
+    font-weight: 700; font-size: 0.82em; margin-bottom: 1px;
 }
-.chat-row.system {
-    border-left: 3px solid #607d8b;
-    opacity: 0.7;
+.msg-to { color: #8b949e; font-weight: 400; }
+.msg-bubble {
+    background: #161b22; padding: 7px 12px; border-radius: 12px;
+    border-top-left-radius: 3px; line-height: 1.45; font-size: 0.88em;
+    color: #c9d1d9; word-break: break-word;
 }
-.chat-row.artifact {
-    border-left: 3px solid #00c853;
+.msg-bubble.collab { border-left: 3px solid #58a6ff;  background: #0d1a2d; }
+.msg-bubble.artifact { border-left: 3px solid #3fb950; }
+.msg-bubble.thinking { border-left: 3px solid #d29922; animation: flash 1.2s ease-in-out infinite; }
+.msg-bubble.system { border-left: 3px solid #8b949e; opacity: 0.6; font-size: 0.76em; }
+.msg-bubble.approval { border-left: 3px solid #f85149; }
+@keyframes flash { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+.msg-reason {
+    margin-top: 4px; font-size: 0.74em; color: #8b949e;
+    border-top: 1px solid #21262d; padding-top: 4px;
 }
-.chat-row.approval {
-    border-left: 3px solid #ff5252;
+.msg-plan {
+    margin-top: 2px; font-size: 0.74em; color: #d29922;
+    font-weight: 600;
 }
-.chat-row.collaboration {
-    border-left: 3px solid #00e5ff;
-    background: #0d1a2d;
-}
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-}
-.chat-header {
-    display: flex; align-items: center; margin-bottom: 2px;
-}
-.chat-from-name { color: #00e5ff; font-weight: 600; font-size: 0.82em; margin: 0 4px; }
-.chat-arrow { color: #607d8b; margin: 0 4px; font-size: 0.75em; }
-.chat-to-name { color: #8fa4b8; font-size: 0.78em; margin: 0 4px; }
-.chat-ts { color: #455a64; font-size: 0.65em; margin-left: auto; }
-.chat-text {
-    margin: 2px 0 0 4px; color: #ccd6dd; font-size: 0.88em;
-}
+.msg-ts { font-size: 0.64em; color: #484f58; margin-left: 6px; }
 
-/* Decision cards */
-.decision-card {
-    background: #111927; border: 1px solid #1e3a5f;
-    padding: 10px 14px; margin: 4px 0; border-radius: 6px;
-}
-.decision-icon { font-size: 1.4em; }
-.decision-title { color: #00e5ff; font-weight: 600; }
-.decision-detail { color: #8fa4b8; font-size: 0.85em; }
+.thinking-dots::after { content: ''; animation: dots 2s steps(4) infinite; }
+@keyframes dots { 0% { content: ''; } 25% { content: ' .'; }
+  50% { content: ' ..'; } 75% { content: ' ...'; } }
 
-/* Pipeline board */
-.phase-dot { font-size: 0.6em; color: #607d8b; }
+/* Plan cards */
+.plan-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 10px 14px; margin: 6px 0;
+}
+.plan-from { color: #58a6ff; font-weight: 600; font-size: 0.85em; }
+.plan-reason { color: #8b949e; font-size: 0.78em; margin-top: 2px; }
+.plan-snippet { color: #d29922; font-size: 0.8em; font-weight: 600; margin-top: 4px; }
+
+/* Decisions */
+.dec-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 10px 14px; margin: 4px 0;
+}
+.dec-icon { font-size: 1.3em; margin-right: 6px; }
+.dec-title { color: #58a6ff; font-weight: 600; }
+.dec-detail { color: #8b949e; font-size: 0.82em; }
 </style>
 """
 
-AGENT_CONFIGS = [
-    {"id": "product_manager", "name": "Product Manager", "emoji": "📋", "color": "#00e5ff"},
-    {"id": "system_architect", "name": "System Architect", "emoji": "🏗️", "color": "#7c4dff"},
-    {"id": "code_writer", "name": "Code Writer", "emoji": "💻", "color": "#00c853"},
-    {"id": "test_engineer", "name": "Test Engineer", "emoji": "🧪", "color": "#ffab00"},
-    {"id": "code_reviewer", "name": "Code Reviewer", "emoji": "🔍", "color": "#ff5252"},
-    {"id": "devops", "name": "DevOps", "emoji": "🚀", "color": "#448aff"},
+AGENT_CFG = [
+    ("product_manager", "Product Manager", "\U0001f4cb", "#58a6ff"),
+    ("system_architect", "System Architect", "\U0001f3d7\ufe0f", "#bc8cff"),
+    ("code_writer", "Code Writer", "\U0001f4bb", "#3fb950"),
+    ("test_engineer", "Test Engineer", "\U0001f9ea", "#d29922"),
+    ("code_reviewer", "Code Reviewer", "\U0001f50d", "#f85149"),
+    ("devops", "DevOps", "\U0001f680", "#79c0ff"),
 ]
 
 
@@ -104,172 +105,174 @@ def get_session() -> PipelineSession:
 
 
 def main():
-    st.set_page_config(page_title="CodeForge AI", page_icon="🔨", layout="wide")
+    st.set_page_config(page_title="CodeForge AI", page_icon="\U0001f528", layout="wide")
     st.markdown(CSS, unsafe_allow_html=True)
-    st.title("🔨 CodeForge AI")
-    st.caption("Multi-Agent Software Development Command Center")
+    st.title("\U0001f528 CodeForge AI")
+    st.caption("Multi-Agent Development — Messenger Command Center")
 
     session = get_session()
     state = session.get_state()
 
-    _render_project_form(session)
+    _render_project_bar(session, state)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Live Comms", "Pipeline", "Decisions", "Artifacts", "Plan",
-    ])
+    tab1, tab2, tab3 = st.tabs(["Chat", "Pipeline", "Decisions"])
 
     with tab1:
-        render_conversation(session, state)
+        render_chat(state)
     with tab2:
-        render_control_room(session, state)
+        render_pipeline(state)
     with tab3:
         render_decisions(state)
-    with tab4:
-        render_artifacts(state)
-    with tab5:
-        render_plan_thread(state)
 
 
-def render_conversation(session: PipelineSession, state: dict):
-    st.header("Agent Conversation Feed")
+def _render_project_bar(session, state):
+    pid = state["project_id"]
+    phase = state["phase"]
+    artifacts = state.get("artifacts", {})
+
+    cols = st.columns([1, 1, 1, 1, 3])
+    with cols[0]:
+        st.metric("Project", pid[:8] if pid else "\u2014")
+    with cols[1]:
+        st.metric("Phase", phase.upper()[:12])
+    with cols[2]:
+        st.metric("Artifacts", len(artifacts))
+    with cols[3]:
+        st.metric("Messages", state["message_count"])
+
+    with cols[4]:
+        with st.expander("New Project", expanded=not pid):
+            c1, c2 = st.columns([3, 1])
+            with c1:
+                spec = st.text_area(
+                    "Spec", key="spec_input", height=70,
+                    placeholder="e.g. Build a SaaS task manager with auth, CRUD, CSV export...",
+                )
+            with c2:
+                out = st.text_input("Output", value=".codeforge/output", key="out_dir")
+                if st.button("Run", type="primary", use_container_width=True):
+                    if spec.strip():
+                        with st.spinner("Agents collaborating..."):
+                            result = session.run_sync(spec, out)
+                            st.success(f"Done: {result['phase']}")
+                            st.rerun()
+                    else:
+                        st.warning("Enter a spec")
+
+
+def render_chat(state):
+    st.subheader("Group Chat")
     dialogue = state.get("dialogue", [])
-    raw_messages = state.get("messages", [])
+    raw = state.get("messages", [])
 
-    col_a, col_b, col_c = st.columns([2, 1, 1])
-    with col_b:
-        kinds = ["All"] + (
-            sorted({d.get("kind", "") for d in dialogue if d.get("kind")})
-            if dialogue else []
-        )
-        kind_filter = st.selectbox("Filter", kinds, key="dialogue_filter")
-    with col_c:
-        show_raw = st.checkbox("Show raw protocol", key="show_raw_msgs",
-                               value=not bool(dialogue))
+    has_msgs = bool(dialogue or raw)
+    show_raw = not dialogue and raw
 
-    with col_a:
-        st.caption(
-            f"Dialogue: {len(dialogue)} entries | "
-            f"Messages: {state.get('message_count', 0)}"
-        )
-
-    if not dialogue and not raw_messages:
-        st.info("No messages yet. Start a project above to see agents talk.")
+    if not has_msgs:
+        st.info("No messages yet. Start a project above.")
         return
 
-    with st.container(height=520):
-        if show_raw and raw_messages:
-            st.caption("Raw protocol messages:")
-            for msg in reversed(raw_messages[-40:]):
-                mt = msg.get("type", "?")
-                sn = msg.get("sender", "?")
-                rc = msg.get("recipient", "?")
-                pl = str(msg.get("payload", {}))[:100]
-                st.markdown(
-                    f'<div class="chat-row system">'
-                    f'<div class="chat-header">'
-                    f'<span class="chat-from-name">{sn}</span>'
-                    f'<span class="chat-arrow">></span>'
-                    f'<span class="chat-to-name">{rc}</span>'
-                    f'<span class="chat-ts">[{mt}]</span>'
-                    f'</div>'
-                    f'<div class="chat-text">{pl}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
+    if show_raw:
+        with st.container(height=500):
+            for msg in reversed(raw[-40:]):
+                st.caption(
+                    f"[{msg.get('type','?')}] "
+                    f"{msg.get('sender','?')} \u2192 {msg.get('recipient','?')}: "
+                    f"{str(msg.get('payload',{}))[:100]}"
                 )
-        elif dialogue:
-            for entry in reversed(dialogue[-80:]):
-                if kind_filter != "All" and entry.get("kind") != kind_filter:
-                    continue
+        return
+
+    colors = [
+        "#58a6ff", "#bc8cff", "#3fb950", "#d29922", "#f85149", "#79c0ff",
+    ]
+    agent_color = {}
+    for i, (aid, _, emoji, _) in enumerate(AGENT_CFG):
+        agent_color[aid] = (emoji, colors[i % len(colors)])
+
+    groups = _group_messages(dialogue)
+
+    with st.container(height=540):
+        for group in groups:
+            entries = group["entries"]
+            last_ts = entries[-1].get("timestamp", "")[:19]
+            sender = entries[0].get("sender", "")
+            s_name = entries[0].get("sender_name", "Agent")
+            s_av = entries[0].get("sender_avatar", "\U0001f916")
+            r_name = entries[0].get("recipient_name", "")
+
+            color = agent_color.get(sender, ("", "#8b949e"))[1]
+            st.markdown(
+                f'<div class="msg-group">'
+                f'<div class="msg-row">'
+                f'<div class="msg-avatar">{s_av}</div>'
+                f'<div class="msg-body">'
+                f'<div class="msg-sender" style="color:{color}">'
+                f'{s_name}'
+                f'<span class="msg-to"> @ {r_name}</span>'
+                f'<span class="msg-ts">{last_ts}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            for entry in entries:
                 kind = entry.get("kind", "status")
-                has_style = kind in (
-                    "thinking", "system", "artifact", "approval",
-                    "collaboration",
-                )
-                row_class = f"chat-row {kind}" if has_style else "chat-row"
                 text = entry.get("text", "")
                 if kind == "thinking":
-                    text = f'{text} <span class="thinking-dots"></span>'
+                    text = f'{text}<span class="thinking-dots"></span>'
+                bclass = f"msg-bubble {kind}" if kind in (
+                    "collab", "artifact", "thinking", "system", "approval"
+                ) else "msg-bubble"
 
-                bubble_html = (
-                    f'<div class="{row_class}">'
-                    f'<div class="chat-header">'
-                    f'<span class="chat-from-name">'
-                    f'{entry["sender_avatar"]} {entry["sender_name"]}</span>'
-                    f'<span class="chat-arrow">></span>'
-                    f'<span class="chat-to-name">'
-                    f'{entry["recipient_avatar"]} {entry["recipient_name"]}</span>'
-                    f'<span class="chat-ts">'
-                    f'{entry.get("timestamp", "")[:19]}</span>'
-                    f'</div>'
-                    f'<div class="chat-text">{text}</div>'
-                )
-
-                reasoning = entry.get("reasoning", "")
+                html = f'<div class="{bclass}">{text}</div>'
+                reason = entry.get("reasoning", "")
                 plan = entry.get("plan_snippet", "")
-                if reasoning or plan:
-                    bubble_html += (
-                        '<div style="margin-left:24px; margin-top:4px; '
-                        'font-size:0.76em;">'
-                    )
-                    if reasoning:
-                        bubble_html += (
-                            f'<span style="color:#607d8b;">Reasoning: </span>'
-                            f'<span style="color:#8fa4b8;">{reasoning}</span>'
-                        )
-                    if plan:
-                        bubble_html += (
-                            f'<br><span style="color:#ffab00; font-weight:600;">'
-                            f'Plan: </span>'
-                            f'<span style="color:#ccc;">{plan}</span>'
-                        )
-                    bubble_html += '</div>'
+                if reason:
+                    html += f'<div class="msg-reason">Reason: {reason}</div>'
+                if plan:
+                    html += f'<div class="msg-plan">Plan: {plan}</div>'
+                st.markdown(html, unsafe_allow_html=True)
 
-                bubble_html += '</div>'
-                st.markdown(bubble_html, unsafe_allow_html=True)
+            st.markdown('</div></div>', unsafe_allow_html=True)
+
+
+def _group_messages(dialogue):
+    groups = []
+    current = None
+    for entry in dialogue:
+        sender = entry.get("sender", "")
+        if current and current["sender"] == sender:
+            current["entries"].append(entry)
         else:
-            st.info("No dialogue entries synthesized. Check 'Show raw protocol' ")
+            current = {"sender": sender, "entries": [entry]}
+            groups.append(current)
+    return groups
 
 
-def render_control_room(session: PipelineSession, state: dict):
-    st.header("Pipeline Control Room")
+def render_pipeline(state):
+    st.subheader("Pipeline Control Room")
 
-    current_phase = state["phase"]
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("Project", state["project_id"][:8] if state["project_id"] else "—")
-    with col2:
-        st.metric("Phase", current_phase.upper() if current_phase != "complete" else "COMPLETE")
-    with col3:
-        artifacts = state.get("artifacts", {})
-        st.metric("Artifacts", len(artifacts))
-    with col4:
-        st.metric("Messages", state["message_count"])
-    with col5:
-        decisions = state.get("decisions", [])
-        st.metric("Decisions", len(decisions))
-
-    st.subheader("Phase Map")
-    current_idx = PHASES_LIST.index(current_phase) if current_phase in PHASES_LIST else -1
+    phase = state["phase"]
+    current_idx = PHASES_LIST.index(phase) if phase in PHASES_LIST else -1
     phase_icons = {
-        "requirements": "📋", "architecture": "🏗️", "implementation": "💻",
-        "testing": "🧪", "review": "🔍", "deployment": "🚀", "complete": "🏁",
+        "requirements": "\U0001f4cb", "architecture": "\U0001f3d7\ufe0f",
+        "implementation": "\U0001f4bb", "testing": "\U0001f9ea",
+        "review": "\U0001f50d", "deployment": "\U0001f680", "complete": "\U0001f3c1",
     }
+
     cols = st.columns(len(PHASES_LIST))
     for i, (col, p) in enumerate(zip(cols, PHASES_LIST)):
         with col:
             if i < current_idx:
-                st.markdown(f"### {phase_icons[p]}")
-                st.caption(f"✅ {p.capitalize()}")
+                st.markdown(f"### {phase_icons.get(p,'')}")
+                st.caption(f"\u2705 {p.capitalize()}")
             elif i == current_idx:
-                st.markdown(f"### {phase_icons[p]}")
-                st.caption(f"⚡ **{p.capitalize()}**")
+                st.markdown(f"### {phase_icons.get(p,'')}")
+                st.caption(f"\u26a1 {p.capitalize()}")
             else:
-                st.markdown("◻")
+                st.markdown("### \u25ef")
                 st.caption(p.capitalize())
 
-    st.subheader("Agent Status Board")
-
-    phase_agents = {
+    phase_agent_map = {
         "requirements": "product_manager",
         "architecture": "system_architect",
         "implementation": "code_writer",
@@ -277,265 +280,81 @@ def render_control_room(session: PipelineSession, state: dict):
         "review": "code_reviewer",
         "deployment": "devops",
     }
-    current_agent_id = phase_agents.get(current_phase)
+    current_agent = phase_agent_map.get(phase)
 
     agents_from_state = state.get("agents", [])
-    for cfg in AGENT_CONFIGS:
-        ag_state = "idle"
-        progress = 0.0
+    st.subheader("Agents")
+
+    for aid, name, emoji, color in AGENT_CFG:
+        ag = {"state": "idle", "progress": 0.0}
         for a in agents_from_state:
-            if a.get("role") == cfg["id"]:
-                ag_state = a.get("state", "idle")
-                progress = a.get("progress", 0.0)
+            if a.get("role") == aid:
+                ag = a
                 break
 
-        is_current = cfg["id"] == current_agent_id
+        is_current = aid == current_agent
+        sts = ag.get("state", "idle")
+        prg = ag.get("progress", 0.0)
 
-        cols = st.columns([1, 3, 2, 2, 2])
-        with cols[0]:
-            st.markdown(f"### {cfg['emoji']}")
-        with cols[1]:
-            marker = "▶ " if is_current else ""
-            st.markdown(f"**{marker}{cfg['name']}**")
-        with cols[2]:
-            st.progress(progress)
-        with cols[3]:
-            state_color = {
-                "idle": "gray", "working": "green", "blocked": "orange",
-                "error": "red",
-            }.get(ag_state, "gray")
-            st.markdown(f":{state_color}[{ag_state}]")
-        with cols[4]:
-            st.caption(
-                f"{cfg['color']}" if is_current else "#607d8b"
-            )
+        c1, c2, c3, c4 = st.columns([1, 3, 2, 1])
+        with c1:
+            st.markdown(f"### {emoji}")
+        with c2:
+            marker = "\u25b6 " if is_current else "  "
+            st.markdown(f"**{marker}{name}**")
+        with c3:
+            st.progress(prg)
+        with c4:
+            dot = {"idle": "gray", "working": "green", "blocked": "orange",
+                   "error": "red"}.get(sts, "gray")
+            st.markdown(f":{dot}[{sts}]")
 
-
-def _render_project_form(session: PipelineSession):
-    has_project = bool(session.get_state().get("project_id"))
-    if has_project:
-        with st.expander("Start New Project", expanded=False):
-            _project_form_body(session)
-    else:
-        st.subheader("Start New Project")
-        _project_form_body(session)
+    if state.get("errors"):
+        st.error(" | ".join(state["errors"]))
 
 
-def _project_form_body(session: PipelineSession):
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        spec = st.text_area(
-            "Specification",
-            key="spec_input",
-            placeholder="e.g. 'Build a todo app with user auth, CRUD, CSV export, and a dashboard'",
-            height=90,
-        )
-    with col2:
-        output = st.text_input("Output Dir", value=".codeforge/output", key="output_dir")
-        if st.button("▶ Run Pipeline", type="primary", use_container_width=True):
-            if spec.strip():
-                with st.spinner("Agents are collaborating on your project..."):
-                    result = session.run_sync(spec, output)
-                    st.success(
-                        f"Pipeline finished — Phase: {result['phase']} | "
-                        f"Artifacts: {list(result['artifacts'].keys())}"
-                    )
-                    st.rerun()
-            else:
-                st.warning("Enter a specification first")
+def render_decisions(state):
+    st.subheader("Decisions & Plans")
 
+    dialogue = state.get("dialogue", [])
+    collab = [
+        d for d in dialogue
+        if d.get("kind") in ("collaboration", "task")
+        and d.get("plan_snippet")
+    ]
 
-def render_decisions(state: dict):
-    st.header("Decisions Board")
     decisions = state.get("decisions", [])
 
-    if not decisions:
-        st.info("No decisions yet. Start a project to see agent decision-making.")
+    if not collab and not decisions:
+        st.info("No decisions yet. Start a project.")
         return
 
-    st.caption(f"{len(decisions)} decisions logged across the pipeline")
-    for d in decisions:
-        st.markdown(
-            f'<div class="decision-card">'
-            f'<span class="decision-icon">{d["icon"]}</span> '
-            f'<span class="decision-title">{d["title"]}</span><br>'
-            f'<span class="decision-detail">{d["detail"]}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-
-def render_artifacts(state: dict):
-    st.header("Artifact Explorer")
-    artifacts = state.get("artifacts", {})
-
-    art_configs = [
-        ("prd", "📋 PRD"),
-        ("tech_spec", "🏗️ Tech Spec"),
-        ("source_code", "💻 Source Code"),
-        ("test_suite", "🧪 Test Suite"),
-        ("review_report", "🔍 Review Report"),
-        ("deployment_config", "🚀 Deployment"),
-    ]
-
-    status_cols = st.columns(len(art_configs))
-    for col, (key, label) in zip(status_cols, art_configs):
-        with col:
-            present = key in artifacts
-            color = "green" if present else "gray"
-            st.markdown(f":{color}_circle: {label}")
-
-    tabs = st.tabs([label for _, label in art_configs])
-
-    with tabs[0]:
-        _render_prd(artifacts.get("prd", {}))
-    with tabs[1]:
-        _render_techspec(artifacts.get("tech_spec", {}))
-    with tabs[2]:
-        _render_source(artifacts.get("source_code", {}))
-    with tabs[3]:
-        _render_test(artifacts.get("test_suite", {}))
-    with tabs[4]:
-        _render_review(artifacts.get("review_report", {}))
-    with tabs[5]:
-        _render_deploy(artifacts.get("deployment_config", {}))
-
-
-def _render_prd(data: dict):
-    if not data:
-        st.info("Not yet generated")
-        return
-    st.subheader(data.get("title", "Untitled"))
-    st.write(data.get("summary", ""))
-    with st.expander("Goals"):
-        st.json(data.get("goals", []))
-    stories = data.get("user_stories", [])
-    if stories:
-        with st.expander(f"User Stories ({len(stories)})"):
-            for i, s in enumerate(stories[:10]):
-                st.caption(f"{i+1}. {s.get('statement', str(s))}")
-    with st.expander("Scope & Edge Cases"):
-        st.json(data.get("scope", {}))
-        st.json(data.get("edge_cases", []))
-
-
-def _render_techspec(data: dict):
-    if not data:
-        st.info("Not yet generated")
-        return
-    st.subheader(data.get("title", ""))
-    st.write(data.get("overview", ""))
-    with st.expander("Tech Stack"):
-        for item in data.get("tech_stack", []):
+    if collab:
+        for entry in reversed(collab[-12:]):
             st.markdown(
-                f"- **{item.get('category', '')}**: {item.get('choice', '')} "
-                f"({item.get('rationale', '')})"
-            )
-    with st.expander("Data Entities"):
-        st.json(data.get("data_entities", []))
-    with st.expander("API Endpoints"):
-        for ep in data.get("api_endpoints", []):
-            st.markdown(
-                f"- {ep.get('method', 'GET')} {ep.get('path', '/')}"
-                f" — {ep.get('summary', '')}"
-            )
-    with st.expander("File Tree"):
-        st.json(data.get("file_tree", []))
-    with st.expander("Risks"):
-        for r in data.get("risks", []):
-            st.markdown(
-                f"- **{r.get('description', '')}**"
-                f" (severity: {r.get('severity', '')})"
-            )
-
-
-def _render_source(data: dict):
-    if not data:
-        st.info("Not yet generated")
-        return
-    st.metric("Files", len(data.get("files", [])))
-    st.caption(data.get("validation_report", ""))
-    with st.expander("Files Created"):
-        for f in data.get("files", []):
-            st.text(f)
-    editor = data.get("editor_summary", {})
-    if editor:
-        with st.expander("Editor Summary"):
-            st.json(editor)
-
-
-def _render_test(data: dict):
-    if not data:
-        st.info("Not yet generated")
-        return
-    st.metric("Test Files", len(data.get("test_files", [])))
-    st.metric("Patterns", data.get("patterns_generated", 0))
-    st.caption(data.get("coverage_report", ""))
-    with st.expander("Test Files"):
-        for f in data.get("test_files", []):
-            st.text(f)
-    missing = data.get("missing_tests", [])
-    if missing:
-        with st.expander("Coverage Gaps"):
-            for m in missing:
-                st.warning(m)
-
-
-def _render_review(data: dict):
-    if not data:
-        st.info("Not yet generated")
-        return
-    score = data.get("overall_score", 0)
-    st.metric("Score", f"{score:.1%}" if isinstance(score, float) else str(score))
-    st.metric("Findings", data.get("total_findings", 0))
-    st.metric("Layers Analyzed", data.get("layers_analyzed", 0))
-    with st.expander("Findings"):
-        st.json(data.get("findings", []))
-
-
-def _render_deploy(data: dict):
-    if not data:
-        st.info("Not yet generated")
-        return
-    st.metric("Files", len(data.get("files_generated", [])))
-    for f in data.get("files_generated", []):
-        st.text(f)
-
-
-def render_plan_thread(state: dict):
-    st.header("Plan Thread")
-    dialogue = state.get("dialogue", [])
-
-    collab_entries = [
-        d for d in dialogue
-        if d.get("kind") in ("collaboration", "task") and d.get("plan_snippet")
-    ]
-
-    if not collab_entries:
-        st.info("No plan entries yet. Start a project to see agent strategy discussions.")
-        return
-
-    for entry in reversed(collab_entries):
-        reason = entry.get("reasoning", "")
-        plan = entry.get("plan_snippet", "")
-        text = entry.get("text", "")
-
-        with st.container():
-            st.markdown(
-                f'<div class="decision-card">'
-                f'<span class="decision-icon">'
-                f'{entry["sender_avatar"]}</span> '
-                f'<span class="decision-title">'
-                f'{entry["sender_name"]}'
-                f'</span>'
+                f'<div class="plan-card">'
+                f'<div class="plan-from">'
+                f'{entry["sender_avatar"]} {entry["sender_name"]}'
+                f'</div>'
+                f'<div class="plan-reason">'
+                f'{entry.get("reasoning", "")}</div>'
+                f'<div class="plan-snippet">'
+                f'\U0001f4cb {entry.get("plan_snippet", "")}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            if reason:
-                st.caption(f"Reasoning: {reason}")
-            if plan:
-                st.markdown(f"**Plan:** {plan}")
-            st.caption(f"Message: {text[:120]}")
+
+    if decisions:
+        st.subheader("Artifact Decisions")
+        for d in decisions:
+            st.markdown(
+                f'<div class="dec-card">'
+                f'<span class="dec-icon">{d["icon"]}</span>'
+                f'<span class="dec-title">{d["title"]}</span><br>'
+                f'<span class="dec-detail">{d["detail"]}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
 
 if __name__ == "__main__":
