@@ -33,16 +33,42 @@ h1, h2, h3, h4 { color: #00e5ff !important; }
 }
 .stButton>button:hover { background: #2a4a7f !important; }
 
-/* Chat bubbles */
-.chat-bubble {
-    background: #151d2b; border-left: 3px solid #00e5ff;
-    padding: 8px 12px; margin: 4px 0; border-radius: 4px;
-    color: #ccd6dd;
+/* Chat rows — group chat style */
+.chat-row {
+    margin: 6px 0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: #111927;
+    border: 1px solid #1a2a44;
 }
-.chat-avatar { display: inline-block; width: 28px; text-align: center; }
-.chat-name { color: #00e5ff; font-weight: 600; }
-.chat-ts { color: #607d8b; font-size: 0.7em; }
-.chat-text { margin: 4px 0 0 32px; }
+.chat-row.thinking {
+    border-left: 3px solid #ffab00;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+.chat-row.system {
+    border-left: 3px solid #607d8b;
+    opacity: 0.7;
+}
+.chat-row.artifact {
+    border-left: 3px solid #00c853;
+}
+.chat-row.approval {
+    border-left: 3px solid #ff5252;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.chat-header {
+    display: flex; align-items: center; margin-bottom: 2px;
+}
+.chat-from-name { color: #00e5ff; font-weight: 600; font-size: 0.82em; margin: 0 4px; }
+.chat-arrow { color: #607d8b; margin: 0 4px; font-size: 0.75em; }
+.chat-to-name { color: #8fa4b8; font-size: 0.78em; margin: 0 4px; }
+.chat-ts { color: #455a64; font-size: 0.65em; margin-left: auto; }
+.chat-text {
+    margin: 2px 0 0 4px; color: #ccd6dd; font-size: 0.88em;
+}
 
 /* Decision cards */
 .decision-card {
@@ -133,24 +159,39 @@ def render_conversation(session: PipelineSession, state: dict):
                 rc = msg.get("recipient", "?")
                 pl = str(msg.get("payload", {}))[:100]
                 st.markdown(
-                    f'<div class="chat-bubble" style="border-left-color:#607d8b;">'
-                    f'<span class="chat-avatar">📡</span>'
-                    f'<span class="chat-name">{sn} → {rc}</span>'
-                    f'<span class="chat-ts">{mt}</span>'
+                    f'<div class="chat-row system">'
+                    f'<div class="chat-header">'
+                    f'<span class="chat-from-name">{sn}</span>'
+                    f'<span class="chat-arrow">></span>'
+                    f'<span class="chat-to-name">{rc}</span>'
+                    f'<span class="chat-ts">[{mt}]</span>'
+                    f'</div>'
                     f'<div class="chat-text">{pl}</div>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
         elif dialogue:
-            for entry in reversed(dialogue[-60:]):
+            for entry in reversed(dialogue[-80:]):
                 if kind_filter != "All" and entry.get("kind") != kind_filter:
                     continue
+                kind = entry.get("kind", "status")
+                has_style = kind in ("thinking", "system", "artifact", "approval")
+                row_class = f"chat-row {kind}" if has_style else "chat-row"
+                text = entry.get("text", "")
+                if kind == "thinking":
+                    text = f'{text} <span class="thinking-dots"></span>'
                 st.markdown(
-                    f'<div class="chat-bubble">'
-                    f'<span class="chat-avatar">{entry["avatar"]}</span>'
-                    f'<span class="chat-name">{entry["name"]}</span>'
-                    f'<span class="chat-ts">{entry["timestamp"][:19]}</span>'
-                    f'<div class="chat-text">{entry["text"]}</div>'
+                    f'<div class="{row_class}">'
+                    f'<div class="chat-header">'
+                    f'<span class="chat-from-name">'
+                    f'{entry["sender_avatar"]} {entry["sender_name"]}</span>'
+                    f'<span class="chat-arrow">></span>'
+                    f'<span class="chat-to-name">'
+                    f'{entry["recipient_avatar"]} {entry["recipient_name"]}</span>'
+                    f'<span class="chat-ts">'
+                    f'{entry.get("timestamp", "")[:19]}</span>'
+                    f'</div>'
+                    f'<div class="chat-text">{text}</div>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )

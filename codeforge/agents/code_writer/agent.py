@@ -88,6 +88,13 @@ class CodeWriterAgent(LLMMixin, BaseAgent):
 
         generated_code = self._generate_code(tech_spec_data, skeleton_result.files_created)
 
+        # Per-file thinking updates
+        for i, (filepath, code) in enumerate(generated_code.items()):
+            if code and len(code) > 5:
+                filename = filepath.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+                progress = 0.4 + 0.2 * ((i + 1) / max(len(generated_code), 1))
+                await self.update_status(f"Writing {filename}", progress, thinking=True)
+
         llm_available = await self._check_llm()
         if llm_available and tech_spec_data:
             await self.update_status("Enhancing with LLM code generation", 0.35)

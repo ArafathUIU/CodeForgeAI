@@ -168,6 +168,178 @@ class PipelineSession:
             "code_reviewer": "Code Reviewer",
             "devops": "DevOps",
             "orchestrator": "Orchestrator",
+            "human_operator": "Human Operator",
+        }
+        avatar_map: dict[str, str] = {
+            "product_manager": "\U0001f4cb",
+            "system_architect": "\U0001f3d7\ufe0f",
+            "code_writer": "\U0001f4bb",
+            "test_engineer": "\U0001f9ea",
+            "code_reviewer": "\U0001f50d",
+            "devops": "\U0001f680",
+            "orchestrator": "\U0001f504",
+            "human_operator": "\U0001f464",
+        }
+        s_name = agent_names.get(sender, sender.capitalize() if sender else "System")
+        r_name = agent_names.get(recipient, recipient.capitalize() if recipient else "all")
+        s_avatar = avatar_map.get(sender, "\U0001f916")
+        r_avatar = avatar_map.get(recipient, "\U0001f916")
+
+        base = {
+            "sender_name": s_name,
+            "sender_avatar": s_avatar,
+            "recipient_name": r_name,
+            "recipient_avatar": r_avatar,
+            "sender": sender,
+            "recipient": recipient,
+            "timestamp": msg.get("timestamp", ""),
+        }
+
+        if msg_type == "task_assignment":
+            desc = payload.get("description", "")
+            phase = ""
+            phase_words = [
+                "requirements", "architecture", "implementation",
+                "testing", "review", "deployment",
+            ]
+            for word in phase_words:
+                if word in desc.lower():
+                    phase = word
+                    break
+            role_actions: dict[str, str] = {
+                "product_manager": (
+                    "analyzing the specification and drafting the PRD"
+                ),
+                "system_architect": (
+                    "designing the system architecture and tech stack"
+                ),
+                "code_writer": (
+                    "implementing the code based on the technical spec"
+                ),
+                "test_engineer": "generating comprehensive test suites",
+                "code_reviewer": (
+                    "reviewing code quality and architecture compliance"
+                ),
+                "devops": (
+                    "preparing Docker, Compose, and CI/CD configurations"
+                ),
+            }
+            action = role_actions.get(recipient, f"working on the {phase} phase")
+            return {
+                **base,
+                "text": f"Task received \u2014 {action}.",
+                "kind": "task",
+                "phase": phase,
+            }
+
+        if msg_type == "artifact_submission":
+            art_type = payload.get("artifact_type", "artifact")
+            notes = payload.get("notes", "")
+            art_labels: dict[str, str] = {
+                "prd": "PRD",
+                "tech_spec": "Technical Specification",
+                "source_code": "Source Code",
+                "test_suite": "Test Suite",
+                "review_report": "Review Report",
+                "deployment_config": "Deployment Configuration",
+            }
+            label = art_labels.get(art_type, art_type)
+            text = f"I have completed the {label} and submitted it for review."
+            if notes:
+                text += f"  {notes}"
+            return {
+                **base,
+                "text": text,
+                "kind": "artifact",
+                "phase": art_type,
+            }
+
+        if msg_type == "status_update":
+            status = payload.get("status", "")
+            progress = payload.get("progress", 0)
+            pct = ""
+            if isinstance(progress, (int, float)) and progress > 0:
+                pct = f" {int(progress * 100)}%"
+            thinking = payload.get("thinking", False)
+            dots = "..." if thinking else ""
+            return {
+                **base,
+                "text": f"{status}{pct}{dots}",
+                "kind": "thinking" if thinking else "status",
+                "phase": "",
+            }
+
+        if msg_type == "approval_request":
+            art_id = payload.get("artifact_id", "")
+            return {
+                **base,
+                "sender_name": "Orchestrator",
+                "sender_avatar": "\U0001f504",
+                "recipient_name": "Human Operator",
+                "recipient_avatar": "\U0001f464",
+                "text": (
+                    f"Approval requested for artifact {art_id}. "
+                    f"Awaiting human review."
+                ),
+                "kind": "approval",
+                "phase": "",
+            }
+
+        if msg_type == "approval_response":
+            decision = payload.get("decision", "")
+            return {
+                **base,
+                "text": f"Approval gate resolved: {decision.upper()}.",
+                "kind": "approval",
+                "phase": "",
+            }
+
+        if msg_type == "system_event":
+            event_type = payload.get("event_type", "")
+            desc = payload.get("description", "")
+            if "phase_transition" in event_type:
+                return {
+                    **base,
+                    "sender_name": "Orchestrator",
+                    "sender_avatar": "\U0001f504",
+                    "text": f"Pipeline advancing: {desc}",
+                    "kind": "system",
+                    "phase": "",
+                }
+            if "project_started" in event_type:
+                return {
+                    **base,
+                    "sender_name": "Orchestrator",
+                    "sender_avatar": "\U0001f504",
+                    "text": desc,
+                    "kind": "system",
+                    "phase": "init",
+                }
+            if "project_complete" in event_type:
+                return {
+                    **base,
+                    "sender_name": "Orchestrator",
+                    "sender_avatar": "\U0001f504",
+                    "text": desc,
+                    "kind": "system",
+                    "phase": "complete",
+                }
+            return {
+                **base,
+                "sender_name": "Orchestrator",
+                "sender_avatar": "\U0001f504",
+                "text": desc,
+                "kind": "system",
+                "phase": "",
+            }
+
+        short_payload = str(payload)[:120]
+        fallback_text = f"[{msg_type}] {short_payload}" if short_payload else f"[{msg_type}]"
+        return {
+            **base,
+            "text": fallback_text,
+            "kind": "raw",
+            "phase": "",
         }
         avatar_map: dict[str, str] = {
             "product_manager": "\U0001f4cb",

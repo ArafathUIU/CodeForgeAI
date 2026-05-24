@@ -186,7 +186,9 @@ class BaseAgent(ABC):
         await self.send_message(message)
         self._state = AgentState.BLOCKED
 
-    async def update_status(self, status: str, progress: float = 0.0) -> None:
+    async def update_status(
+        self, status: str, progress: float = 0.0, thinking: bool = False
+    ) -> None:
         message = Message(
             sender=self._agent_id,
             recipient="orchestrator",
@@ -195,6 +197,7 @@ class BaseAgent(ABC):
                 "agent_id": self._agent_id,
                 "status": status,
                 "progress": progress,
+                "thinking": thinking,
             },
             priority=Priority.LOW,
         )
