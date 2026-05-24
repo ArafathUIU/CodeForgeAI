@@ -10,6 +10,11 @@ import streamlit as st
 
 from codeforge.api.session import PipelineSession
 
+PHASES_LIST = [
+    "requirements", "architecture", "implementation",
+    "testing", "review", "deployment", "complete",
+]
+
 
 @st.cache_resource
 def get_session() -> PipelineSession:
@@ -19,7 +24,7 @@ def get_session() -> PipelineSession:
 def main():
     st.set_page_config(page_title="CodeForge AI", page_icon="🔨", layout="wide")
     st.title("🔨 CodeForge AI")
-    st.caption("Multi-Agent Software Development Team")
+    st.caption("Multi-Agent AI Software Development System")
 
     session = get_session()
 
@@ -47,30 +52,36 @@ def render_pipeline(session: PipelineSession):
     st.header("Pipeline Control")
     state = session.get_state()
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
+    current_phase = state["phase"]
     with col1:
-        st.metric("Phase", state["phase"].capitalize())
+        st.metric("Phase", current_phase.capitalize())
     with col2:
-        st.metric("Project", state["project_id"][:8] if state["project_id"] else "None")
+        pid = state["project_id"]
+        st.metric("Project", pid[:8] if pid else "—")
     with col3:
         st.metric("Messages", state["message_count"])
+    with col4:
+        st.metric("Artifacts", len(state.get("artifacts", {})))
 
-    phases_list = ["requirements", "architecture", "implementation",
-                   "testing", "review", "deployment", "complete"]
-    cols = st.columns(len(phases_list))
-    current_phase = state["phase"]
-    for i, (col, p) in enumerate(zip(cols, phases_list)):
+    st.subheader("Phase Progress")
+    current_idx = PHASES_LIST.index(current_phase) if current_phase in PHASES_LIST else -1
+    cols = st.columns(len(PHASES_LIST))
+    for i, (col, p) in enumerate(zip(cols, PHASES_LIST)):
         with col:
-            active = p == current_phase
-            st.button(
-                p[:4].capitalize(),
-                key=f"phase_{p}",
-                disabled=not active,
-                type="primary" if active else "secondary",
-                use_container_width=True,
-            )
+            if i < current_idx:
+                label = f"✅ {p[:4].capitalize()}"
+                btype = "secondary"
+            elif i == current_idx:
+                label = f"▶ {p[:4].capitalize()}"
+                btype = "primary"
+            else:
+                label = f"◻ {p[:4].capitalize()}"
+                btype = "secondary"
+            st.button(label, key=f"phase_{p}", disabled=True, type=btype,
+                      use_container_width=True)
 
-    st.subheader("Start Project")
+    st.subheader("Start New Project")
     col1, col2 = st.columns([3, 1])
     with col1:
         spec = st.text_area(
@@ -84,17 +95,22 @@ def render_pipeline(session: PipelineSession):
         )
     with col2:
         output = st.text_input("Output Dir", value=".codeforge/output", key="output_dir")
-        if st.button("Start Project", type="primary", use_container_width=True):
+        if st.button("▶ Run Pipeline", type="primary", use_container_width=True):
             if spec.strip():
-                with st.spinner("Initializing pipeline..."):
+                with st.spinner("Running full pipeline (all 6 agents)..."):
                     result = session.run_sync(spec, output)
-                    st.success(f"Project {result['project_id'][:8]} started")
+                    st.success(f"Phase: {result['phase']} | "
+                               f"Artifacts: {list(result['artifacts'].keys())}")
                     st.rerun()
             else:
                 st.warning("Enter a specification first")
 
     if state["errors"]:
         st.error("Errors: " + "; ".join(state["errors"]))
+    elif current_phase == "complete":
+        st.success("Pipeline completed successfully — all 6 artifacts produced")
+    elif current_phase == "failed":
+        st.error("Pipeline failed")
 
 
 def render_agent_monitor(session: PipelineSession):
@@ -122,11 +138,24 @@ def render_agent_monitor(session: PipelineSession):
         "devops": "DevOps",
     }
 
+    phase_agents = {
+        "requirements": "product_manager",
+        "architecture": "system_architect",
+        "implementation": "code_writer",
+        "testing": "test_engineer",
+        "review": "code_reviewer",
+        "deployment": "devops",
+    }
+    current_phase = state["phase"]
+    current_agent = phase_agents.get(current_phase)
+
     for agent in agents:
         role = agent.get("role", "unknown")
+        is_current = role == current_agent
         col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
         with col1:
-            st.text(name_map.get(role, role.capitalize()))
+            prefix = "▶ " if is_current else "  "
+            st.text(f"{prefix}{name_map.get(role, role.capitalize())}")
         with col2:
             ag_state = agent.get("state", "idle")
             color = {"idle": "gray", "working": "green", "blocked": "orange",
@@ -145,37 +174,76 @@ def render_artifacts(session: PipelineSession):
     state = session.get_state()
     artifacts = state.get("artifacts", {})
 
-    tabs = st.tabs(["PRD", "Tech Spec", "Source Code", "Test Suite", "Review", "Deploy"])
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    labels = ["PRD", "Tech Spec", "Source", "Tests", "Review", "Deploy"]
+    keys = ["prd", "tech_spec", "source_code", "test_suite", "review_report", "deployment_config"]
+    for col, label, key in zip([col1, col2, col3, col4, col5, col6], labels, keys):
+        with col:
+            present = key in artifacts
+            color = "green" if present else "gray"
+            st.markdown(f":{color}_circle: {label}")
+
+    tab_labels = ["PRD", "Tech Spec", "Source Code", "Test Suite", "Review Report", "Deploy Config"]
+    tabs = st.tabs(tab_labels)
+
+    def _show_prd(data):
+        if not data:
+            st.info("Not yet generated")
+            return
+        st.subheader(data.get("title", "Untitled"))
+        st.write(data.get("summary", ""))
+        st.subheader("Goals")
+        st.json(data.get("goals", []))
+        stories = data.get("user_stories", [])
+        if stories:
+            st.subheader("User Stories")
+            for i, s in enumerate(stories[:10]):
+                st.caption(f"{i+1}. {s.get('statement', str(s))}")
+
+    def _show_techspec(data):
+        if not data:
+            st.info("Not yet generated")
+            return
+        st.subheader(data.get("title", ""))
+        st.write(data.get("overview", ""))
+        with st.expander("Tech Stack"):
+            for item in data.get("tech_stack", []):
+                st.text(f"{item.get('category', '')}: {item.get('choice', '')}")
+        with st.expander("API Contracts"):
+            st.json(data.get("api_contracts", []))
+        with st.expander("File Tree"):
+            st.json(data.get("file_tree", {}))
+        with st.expander("Full Tech Spec JSON"):
+            st.json(data)
+
+    def _show_generic(data, label):
+        if not data:
+            st.info(f"No {label.lower()} generated yet")
+            return
+        if isinstance(data, dict):
+            for key, val in data.items():
+                with st.expander(f"{label}: {key}"):
+                    if isinstance(val, (dict, list)):
+                        st.json(val)
+                    else:
+                        st.write(str(val)[:2000])
+        elif isinstance(data, list):
+            st.json(data)
+        else:
+            st.write(str(data)[:2000])
 
     with tabs[0]:
-        prd = artifacts.get("prd", {})
-        if prd:
-            st.subheader(prd.get("title", "Untitled"))
-            st.write(prd.get("summary", ""))
-            st.json(prd.get("goals", []))
-            stories = prd.get("user_stories", [])
-            for s in stories[:5]:
-                st.caption(s.get("statement", ""))
-
+        _show_prd(artifacts.get("prd", {}))
     with tabs[1]:
-        spec = artifacts.get("tech_spec", {})
-        if spec:
-            st.subheader(spec.get("title", ""))
-            st.write(spec.get("overview", ""))
-            with st.expander("Tech Stack"):
-                for item in spec.get("tech_stack", []):
-                    st.text(f"{item.get('category', '')}: {item.get('choice', '')}")
-
-    artifact_keys = [
-        "source_code", "test_suite", "review_report", "deployment_config"
-    ]
-    for i, (tab, key) in enumerate(zip(tabs[2:], artifact_keys)):
-        with tab:
-            data = artifacts.get(key, {})
-            if data:
-                st.json(data)
-            else:
-                st.text(f"No {key} generated yet")
+        _show_techspec(artifacts.get("tech_spec", {}))
+    with tabs[2]:
+        _show_generic(artifacts.get("source_code", {}), "Source")
+    with tabs[3]:
+        _show_generic(artifacts.get("test_suite", {}), "Tests")
+    with tabs[4]:
+        _show_generic(artifacts.get("review_report", {}), "Review")
+    with tabs[5]:
+        _show_generic(artifacts.get("deployment_config", {}), "Deploy")
 
 
 def render_messages(session: PipelineSession):
@@ -185,17 +253,25 @@ def render_messages(session: PipelineSession):
 
     st.metric("Total Messages", len(messages))
 
-    type_filter = st.selectbox("Filter", ["All", "task_assignment", "artifact_submission",
-                                           "status_update", "approval", "system_event"])
-    for msg in reversed(messages[-30:]):
+    type_filter = st.selectbox(
+        "Filter", ["All", "task_assignment", "artifact_submission",
+                   "status_update", "approval", "system_event"],
+    )
+
+    if not messages:
+        st.info("No messages yet. Start a project first.")
+        return
+
+    for msg in reversed(messages[-40:]):
         msg_type = msg.get("type", "unknown")
         if type_filter != "All" and type_filter not in msg_type:
             continue
         with st.container():
             sender = msg.get("sender", "unknown")
+            recipient = msg.get("recipient", "")
             payload = msg.get("payload", {})
             desc = payload.get("description", payload.get("status", str(payload)[:80]))
-            st.caption(f"[{msg_type}] {sender}: {desc}")
+            st.caption(f"[{msg_type}] {sender} → {recipient}: {desc}")
 
 
 def render_approvals(session: PipelineSession):
@@ -203,42 +279,57 @@ def render_approvals(session: PipelineSession):
     state = session.get_state()
     gates = state.get("approval_gates", [])
 
+    pending = [g for g in gates if g.get("status") != "resolved"]
+    resolved = [g for g in gates if g.get("status") == "resolved"]
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Pending", len(pending))
+    with col2:
+        st.metric("Resolved", len(resolved))
+
     if not gates:
-        st.info("No pending approvals. Start a project to see approval gates.")
+        st.info("No approval gates yet. Start a project and gates appear at each gated phase.")
+        return
 
-    for gate in gates:
-        if gate.get("status") == "resolved":
-            continue
-        with st.expander(f"Phase: {gate.get('phase', gate.get('id', ''))}"):
+    for gate in reversed(gates):
+        status = gate.get("status", "unknown")
+        icon = "✅" if status == "resolved" else "⏳"
+        with st.expander(
+            f"{icon} {gate.get('phase', gate.get('id', ''))}"
+            f" — {gate.get('decision', status)}"
+        ):
             st.text(f"ID: {gate.get('id', '')}")
+            st.text(f"Artifact: {gate.get('artifact_id', '')}")
+            st.text(f"Description: {gate.get('description', '')}")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Approve", key=f"approve_{gate['id']}"):
-                    from codeforge.core.message_protocol import Message, MessageType
-                    msg = Message(
-                        sender="dashboard", recipient="orchestrator",
-                        type=MessageType.APPROVAL_RESPONSE,
-                        payload={"approval_id": gate["id"], "decision": "approve", "comments": ""},
-                    )
-                    import asyncio
-                    loop = asyncio.new_event_loop()
-                    loop.run_until_complete(session._orchestrator._message_bus.publish(msg))
-                    loop.close()
-                    st.rerun()
-            with col2:
-                if st.button("Reject", key=f"reject_{gate['id']}"):
-                    from codeforge.core.message_protocol import Message, MessageType
-                    msg = Message(
-                        sender="dashboard", recipient="orchestrator",
-                        type=MessageType.APPROVAL_RESPONSE,
-                        payload={"approval_id": gate["id"], "decision": "reject", "comments": ""},
-                    )
-                    import asyncio
-                    loop = asyncio.new_event_loop()
-                    loop.run_until_complete(session._orchestrator._message_bus.publish(msg))
-                    loop.close()
-                    st.rerun()
+            if status != "resolved":
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("Approve", key=f"approve_{gate['id']}"):
+                        _send_approval(session, gate["id"], "approve")
+                with col2:
+                    if st.button("Reject", key=f"reject_{gate['id']}"):
+                        _send_approval(session, gate["id"], "reject")
+
+
+def _send_approval(session: PipelineSession, gate_id: str, decision: str) -> None:
+    import asyncio
+
+    from codeforge.core.message_protocol import Message, MessageType
+
+    msg = Message(
+        sender="dashboard",
+        recipient="orchestrator",
+        type=MessageType.APPROVAL_RESPONSE,
+        payload={"approval_id": gate_id, "decision": decision, "comments": ""},
+    )
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(session._orchestrator._message_bus.publish(msg))
+    finally:
+        loop.close()
+    st.rerun()
 
 
 if __name__ == "__main__":

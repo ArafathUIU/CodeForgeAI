@@ -27,6 +27,8 @@ async def run_full_pipeline(specification: str) -> dict:
             "phase": state["phase"],
             "agents": len(state.get("agents", [])),
             "message_count": state["message_count"],
+            "artifacts": list(state.get("artifacts", {}).keys()),
+            "approvals": len(state.get("approval_gates", [])),
         }
 
 
@@ -37,18 +39,25 @@ def main():
         "and a dashboard view showing task statistics."
     )
     print("=" * 60)
-    print("CodeForge AI - End-to-End Demo")
+    print("  CodeForge AI — End-to-End Pipeline Demo")
     print("=" * 60)
-    print(f"\nSpecification: {spec}\n")
+    print(f"\n  Spec: {spec}\n")
 
     result = asyncio.run(run_full_pipeline(spec))
 
-    print(f"Project ID: {result['project_id']}")
-    print(f"Phase: {result['phase']}")
-    print(f"Agents registered: {result['agents']}")
-    print(f"Messages generated: {result['message_count']}")
-    print("\nDemo complete!")
+    print(f"  Project ID:      {result['project_id'][:8]}")
+    print(f"  Final Phase:     {result['phase']}")
+    print(f"  Agents:          {result['agents']}")
+    print(f"  Messages:        {result['message_count']}")
+    print(f"  Approvals:       {result['approvals']}")
+    print("  Artifacts:")
+    for a in result["artifacts"]:
+        print(f"    - {a}")
+    print(f"\n  Status: {'PASS' if result['phase'] == 'complete' else 'PARTIAL'}")
+
+    return result["phase"] == "complete"
 
 
 if __name__ == "__main__":
-    main()
+    ok = main()
+    raise SystemExit(0 if ok else 1)
