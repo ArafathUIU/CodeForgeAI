@@ -76,7 +76,7 @@ class SystemArchitectAgent(LLMMixin, BaseAgent):
                 system_prompt=SYSTEM_ARCHITECT_SYSTEM_PROMPT,
                 user_prompt=build_tech_spec_prompt(prd_json, context_digest),
                 temperature=0.3,
-                max_tokens=3072,
+                max_tokens=8192,
             )
 
             llm_data = self.parse_json_response(response)

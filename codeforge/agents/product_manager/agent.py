@@ -53,6 +53,7 @@ class ProductManagerAgent(LLMMixin, BaseAgent):
                 system_prompt=PRODUCT_MANAGER_SYSTEM_PROMPT,
                 user_prompt=build_prd_prompt(specification, context_digest),
                 temperature=0.3,
+                max_tokens=4096,
             )
 
             llm_data = self.parse_json_response(response)

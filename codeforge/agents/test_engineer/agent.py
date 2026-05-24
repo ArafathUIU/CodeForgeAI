@@ -57,12 +57,12 @@ class TestEngineerAgent(LLMMixin, BaseAgent):
         if not symbols_to_test:
             symbols_to_test = ["DefaultService"]
 
-        all_tests: list[str] = []
+        all_tests: dict[str, str] = {}
 
         llm_available = await self._check_llm()
         if llm_available and symbols_to_test:
             await self.update_status("Generating tests via LLM", 0.15)
-            for name in symbols_to_test[:3]:
+            for name in symbols_to_test[:5]:
                 entity_code = json.dumps(
                     next((e for e in entities if e.get("name", "") == name), {}),
                     indent=2, default=str,
@@ -71,18 +71,19 @@ class TestEngineerAgent(LLMMixin, BaseAgent):
                     system_prompt=TEST_ENGINEER_SYSTEM_PROMPT,
                     user_prompt=build_test_prompt(entity_code, name),
                     temperature=0.2,
+                    max_tokens=4096,
                 )
                 llm_data = self.parse_json_response(response)
                 if llm_data:
                     test_code = llm_data.get("test_code", llm_data.get("raw_content", ""))
-                    if test_code:
-                        all_tests.append(test_code)
+                    if test_code and len(test_code) > 20:
+                        all_tests[f"test_{name.lower()}.py"] = test_code
 
         if not all_tests:
             for name in symbols_to_test:
                 suite = self._pattern_generator.generate_full_suite(name)
-                for tc in suite:
-                    all_tests.append(tc.code)
+                code = "import pytest\n\n" + "\n\n".join(tc.code for tc in suite)
+                all_tests[f"test_{name.lower()}.py"] = code
 
         await self.update_status("Building fixtures", 0.4)
 
@@ -124,21 +125,13 @@ class TestEngineerAgent(LLMMixin, BaseAgent):
             f.write(conftest_content)
         test_files.append("tests/conftest.py")
 
-        for i, entity in enumerate(entities):
-            entity_name = entity.get(
-                "name", entity.name if hasattr(entity, "name") else f"Entity{i}"
-            )
-            test_name = f"test_{entity_name.lower()}.py"
-            test_path = os.path.join(tests_dir, test_name)
-
-            suite = self._pattern_generator.generate_full_suite(entity_name)
-            test_content = "import pytest\n\n" + "\n\n".join(
-                tc.code for tc in suite
-            )
-
+        for _filename, test_content in all_tests.items():
+            test_path = os.path.join(tests_dir, _filename)
+            if not test_content.startswith("import") and not test_content.startswith("#"):
+                test_content = "import pytest\n\n" + test_content
             with open(test_path, "w", encoding="utf-8") as f:
                 f.write(test_content)
-            test_files.append(f"tests/{test_name}")
+            test_files.append(f"tests/{_filename}")
 
         await self.discuss_with(
             "code_reviewer",

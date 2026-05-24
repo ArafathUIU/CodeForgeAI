@@ -80,6 +80,8 @@ class LlmClient:
         try:
             if self.config.is_groq:
                 return bool(self.config.groq_api_key)
+            if self.config.is_gemini:
+                return bool(self.config.gemini_api_key)
             client = await self._get_client()
             response = await client.get("/tags")
             return response.status_code == 200
@@ -116,6 +118,14 @@ class LlmClient:
                 model=model or self.config.groq_model,
                 temperature=temperature or self.config.groq_temperature,
                 max_tokens=max_tokens or self.config.groq_max_tokens,
+                system=system,
+            )
+        if self.config.is_gemini:
+            return await self._chat_gemini(
+                messages=messages,
+                model=model or self.config.gemini_model,
+                temperature=temperature or self.config.gemini_temperature,
+                max_tokens=max_tokens or self.config.gemini_max_tokens,
                 system=system,
             )
         return await self._chat_ollama(
@@ -284,6 +294,86 @@ class LlmClient:
             prompt_tokens=usage.get("prompt_tokens", 0),
             completion_tokens=usage.get("completion_tokens", 0),
             total_tokens=usage.get("total_tokens", 0),
+            duration_ms=duration_ms,
+            raw_response=data,
+        )
+
+    async def _chat_gemini(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        system: str | None = None,
+    ) -> LLMResponse:
+        contents: list[dict] = []
+        if system:
+            contents.append({"role": "user", "parts": [{"text": f"System: {system}"}]})
+            contents.append({"role": "model", "parts": [{"text": "Understood."}]})
+        for m in messages:
+            role = "model" if m.role == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": m.content}]})
+
+        payload: dict[str, Any] = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens,
+            },
+        }
+
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model}:generateContent?key={self.config.gemini_api_key}"
+        )
+
+        start_time = time.time()
+
+        try:
+            client = httpx.AsyncClient(timeout=httpx.Timeout(self.config.timeout))
+            response = await client.post(
+                url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            response.raise_for_status()
+            data = response.json()
+            await client.aclose()
+        except httpx.ConnectError as e:
+            raise LLMConnectionError(
+                f"Cannot connect to Gemini API: {e}",
+                code="CONNECTION_FAILED",
+            )
+        except httpx.TimeoutException:
+            raise LLMConnectionError(
+                f"Gemini request timed out after {self.config.timeout}s",
+                code="TIMEOUT",
+            )
+        except httpx.HTTPError as e:
+            raise LLMResponseError(
+                f"Gemini HTTP error: {e}",
+                code="HTTP_ERROR",
+            )
+
+        duration_ms = (time.time() - start_time) * 1000
+
+        candidates = data.get("candidates", [])
+        if not candidates:
+            raise LLMResponseError("Empty response from Gemini", code="EMPTY_RESPONSE")
+
+        content = candidates[0].get("content", {})
+        parts = content.get("parts", [])
+        text = "".join(p.get("text", "") for p in parts)
+
+        usage = data.get("usageMetadata", {})
+
+        return LLMResponse(
+            content=text,
+            model=data.get("modelVersion", model),
+            prompt_tokens=usage.get("promptTokenCount", 0),
+            completion_tokens=usage.get("candidatesTokenCount", 0),
+            total_tokens=usage.get("totalTokenCount", 0),
             duration_ms=duration_ms,
             raw_response=data,
         )

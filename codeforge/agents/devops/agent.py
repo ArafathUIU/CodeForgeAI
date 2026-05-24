@@ -59,7 +59,7 @@ class DevOpsAgent(LLMMixin, BaseAgent):
                 system_prompt=DEVOPS_SYSTEM_PROMPT,
                 user_prompt=build_devops_prompt(app_name, tech_json),
                 temperature=0.2,
-                max_tokens=3072,
+                max_tokens=4096,
             )
             llm_data = self.parse_json_response(response)
             if llm_data:

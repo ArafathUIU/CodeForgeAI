@@ -86,6 +86,18 @@ class LLMConfig:
     groq_max_tokens: int = field(
         default_factory=lambda: _get_env_int("GROQ_MAX_TOKENS", 4096)
     )
+    gemini_api_key: str = field(
+        default_factory=lambda: _get_env("GEMINI_API_KEY", "")
+    )
+    gemini_model: str = field(
+        default_factory=lambda: _get_env("GEMINI_MODEL", "gemini-2.0-flash")
+    )
+    gemini_temperature: float = field(
+        default_factory=lambda: _get_env_float("GEMINI_TEMPERATURE", 0.2)
+    )
+    gemini_max_tokens: int = field(
+        default_factory=lambda: _get_env_int("GEMINI_MAX_TOKENS", 8192)
+    )
 
     @property
     def api_url(self) -> str:
@@ -94,6 +106,10 @@ class LLMConfig:
     @property
     def is_groq(self) -> bool:
         return self.provider == "groq" and bool(self.groq_api_key)
+
+    @property
+    def is_gemini(self) -> bool:
+        return self.provider == "gemini" and bool(self.gemini_api_key)
 
     @property
     def is_ollama(self) -> bool:

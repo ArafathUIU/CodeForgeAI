@@ -132,6 +132,61 @@ input, textarea, .stSelectbox>div>div {
     margin-right: 8px;
 }
 .agent-name { font-size: 0.82em; font-weight: 600; }
+
+/* === Preview === */
+.preview-section {
+    margin-bottom: 20px;
+}
+.preview-section h3 {
+    color: #0f172a; font-size: 0.95em; font-weight: 700;
+    margin-bottom: 8px; padding-bottom: 4px;
+    border-bottom: 2px solid #e2e8f0;
+}
+.endpoint-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 8px 14px; margin: 4px 0;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.82em;
+}
+.endpoint-method {
+    font-weight: 700; font-size: 0.72em; padding: 2px 8px;
+    border-radius: 4px; color: #fff; min-width: 50px; text-align: center;
+}
+.method-GET { background: #10b981; }
+.method-POST { background: #3b82f6; }
+.method-PUT { background: #f59e0b; }
+.method-DELETE { background: #ef4444; }
+.method-PATCH { background: #8b5cf6; }
+.endpoint-path { font-family: monospace; font-weight: 600; color: #1e293b; }
+.endpoint-summary { color: #64748b; font-size: 0.78em; }
+
+.entity-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 10px 16px; margin: 4px 0; font-size: 0.82em;
+}
+.entity-name { font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+.entity-fields { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.field-tag {
+    background: #f1f5f9; padding: 1px 8px; border-radius: 4px;
+    font-family: monospace; font-size: 0.78em; color: #64748b;
+}
+
+.file-list-item {
+    font-family: monospace; font-size: 0.80em; padding: 3px 8px;
+    color: #1e293b; cursor: pointer;
+    border-radius: 4px;
+}
+.file-list-item:hover { background: #f1f5f9; }
+
+.tech-badge {
+    display: inline-block; background: #dbeafe; color: #1e40af;
+    padding: 2px 10px; border-radius: 12px; font-size: 0.72em;
+    margin: 2px; font-weight: 600;
+}
+.empty-preview {
+    text-align: center; padding: 60px 20px; color: #94a3b8;
+}
+.empty-preview h2 { font-size: 3em; margin-bottom: 8px; }
 </style>
 """
 
@@ -169,7 +224,14 @@ def main():
     with col_main:
         st.title("\U0001f528 CodeForge AI")
         st.caption("Multi-Agent Software Development Command Center")
-        render_chat(state)
+
+        tabs = st.tabs(["Comms", "Preview", "Artifacts"])
+        with tabs[0]:
+            render_chat(state)
+        with tabs[1]:
+            render_preview(state)
+        with tabs[2]:
+            render_artifacts_tab(state)
 
     with col_right:
         render_pipeline_panel(state)
@@ -375,6 +437,146 @@ def render_decisions_panel(state):
             f'</div>',
             unsafe_allow_html=True,
         )
+
+
+def render_preview(state):
+    preview = state.get("preview", {})
+    if not preview or not preview.get("title"):
+        st.markdown(
+            '<div class="empty-preview">'
+            '<h2>\U0001f4e6</h2>'
+            '<p>No project generated yet.</p>'
+            '<p style="font-size:0.8em">Start a project from the sidebar to see the preview.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    st.markdown(f"### {preview.get('title', 'Project')}")
+    summary = preview.get("summary", "")
+    if summary:
+        st.markdown(summary)
+
+    goals = preview.get("goals", [])
+    if goals:
+        st.markdown("**Goals**")
+        for g in goals[:5]:
+            st.markdown(f"- {g}")
+
+    st.divider()
+
+    tech_stack = preview.get("tech_stack", [])
+    if tech_stack:
+        md = '<div class="preview-section"><h3>\U0001f6e0\ufe0f Tech Stack</h3>'
+        st.markdown(md, unsafe_allow_html=True)
+        badges = " ".join(
+            f'<span class="tech-badge">{cat}: {choice}</span>'
+            for cat, choice in tech_stack[:8]
+        )
+        st.markdown(f'<div style="line-height:2">{badges}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    endpoints = preview.get("api_endpoints", [])
+    if endpoints:
+        md = '<div class="preview-section"><h3>\U0001f310 API Endpoints</h3>'
+        st.markdown(md, unsafe_allow_html=True)
+        for ep in endpoints[:15]:
+            method = ep.get("method", "GET")
+            path = ep.get("path", "/")
+            summary = ep.get("summary", "")
+            st.markdown(
+                f'<div class="endpoint-card">'
+                f'<span class="endpoint-method method-{method}">{method}</span>'
+                f'<span class="endpoint-path">{path}</span>'
+                f'<span class="endpoint-summary">{summary}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    entities = preview.get("data_entities", [])
+    if entities:
+        md = '<div class="preview-section"><h3>\U0001f4ca Data Model</h3>'
+        st.markdown(md, unsafe_allow_html=True)
+        for ent in entities[:6]:
+            name = ent.get("name", "Entity")
+            fields = ent.get("fields", [])
+            field_tags = " ".join(
+                f'<span class="field-tag">{fname}: {ftype}</span>'
+                for fname, ftype in fields[:8]
+            )
+            st.markdown(
+                f'<div class="entity-card">'
+                f'<div class="entity-name">{name}</div>'
+                f'<div class="entity-fields">{field_tags}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    source_files = preview.get("source_files", [])
+    deploy_files = preview.get("deploy_files", [])
+    test_files = preview.get("test_files", [])
+
+    if source_files or deploy_files or test_files:
+        md = '<div class="preview-section"><h3>\U0001f4c1 Generated Files</h3>'
+        st.markdown(md, unsafe_allow_html=True)
+
+        if source_files:
+            st.caption(f"Source ({len(source_files)} files)")
+            for f in source_files[:20]:
+                item = f'<div class="file-list-item">\U0001f4c4 {f}</div>'
+                st.markdown(item, unsafe_allow_html=True)
+
+        if test_files:
+            st.caption(f"Tests ({len(test_files)} files)")
+            for f in test_files[:10]:
+                item = f'<div class="file-list-item">\U0001f9ea {f}</div>'
+                st.markdown(item, unsafe_allow_html=True)
+
+        if deploy_files:
+            st.caption(f"Deploy ({len(deploy_files)} files)")
+            for f in deploy_files[:10]:
+                item = f'<div class="file-list-item">\U0001f680 {f}</div>'
+                st.markdown(item, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if not endpoints and not entities and not source_files:
+        st.info("Pipeline is running — artifacts will appear here as agents complete their work.")
+
+
+def render_artifacts_tab(state):
+    artifacts = state.get("artifacts", {})
+    if not artifacts:
+        st.info("No artifacts yet.")
+        return
+
+    artifact_labels = {
+        "prd": ("\U0001f4cb PRD", "requirements"),
+        "tech_spec": ("\U0001f3d7\ufe0f Tech Spec", "architecture"),
+        "source_code": ("\U0001f4bb Source Code", "implementation"),
+        "test_suite": ("\U0001f9ea Test Suite", "testing"),
+        "review_report": ("\U0001f50d Review Report", "review"),
+        "deployment_config": ("\U0001f680 Deployment Config", "deployment"),
+    }
+
+    for key, (label, phase) in artifact_labels.items():
+        if key in artifacts:
+            art = artifacts[key]
+            with st.expander(label, expanded=False):
+                if isinstance(art, dict):
+                    for k, v in art.items():
+                        if k in ("content", "raw", "files", "test_code"):
+                            continue
+                        if isinstance(v, (str, int, float, bool)):
+                            st.metric(k.replace("_", " ").title(), v)
+                        elif isinstance(v, list):
+                            st.caption(f"{k}: {len(v)} items")
+                    if "content" in art:
+                        content = art["content"]
+                        if isinstance(content, dict):
+                            st.json(content, expanded=False)
 
 
 if __name__ == "__main__":

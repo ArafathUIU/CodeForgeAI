@@ -143,6 +143,56 @@ class PipelineSession:
             "message_count": len(self._messages),
             "dialogue": self._synthesize_dialogue(),
             "decisions": self._synthesize_decisions(),
+            "preview": self._synthesize_preview(),
+        }
+
+    def _synthesize_preview(self) -> dict[str, Any]:
+        artifacts = self._orchestrator._artifacts
+        prd = artifacts.get("prd", {})
+        ts = artifacts.get("tech_spec", {})
+        sc = artifacts.get("source_code", {})
+        tst = artifacts.get("test_suite", {})
+        dep = artifacts.get("deployment_config", {})
+
+        def _safe_get(obj, attr, default=""):
+            if isinstance(obj, dict):
+                return obj.get(attr, default)
+            return getattr(obj, attr, default)
+
+        endpoints = []
+        for e in ts.get("api_endpoints", []):
+            endpoints.append({
+                "method": _safe_get(e, "method", "GET").upper(),
+                "path": _safe_get(e, "path", ""),
+                "summary": _safe_get(e, "summary", ""),
+                "auth": bool(_safe_get(e, "auth_required", False)),
+            })
+
+        entities = []
+        for e in ts.get("data_entities", []):
+            fields = []
+            raw_fields = _safe_get(e, "fields", [])
+            if raw_fields:
+                for f in raw_fields:
+                    fields.append((_safe_get(f, "name"), _safe_get(f, "type", "str")))
+            entities.append({
+                "name": _safe_get(e, "name"),
+                "fields": fields,
+            })
+
+        return {
+            "title": prd.get("title", ts.get("title", "")),
+            "summary": prd.get("summary", ts.get("overview", "")),
+            "goals": prd.get("goals", []),
+            "tech_stack": [
+                (_safe_get(t, "category"), _safe_get(t, "choice"))
+                for t in ts.get("tech_stack", [])
+            ],
+            "api_endpoints": endpoints,
+            "data_entities": entities,
+            "source_files": sc.get("files", []),
+            "test_files": tst.get("test_files", []),
+            "deploy_files": dep.get("files_generated", []),
         }
 
     def _synthesize_dialogue(self) -> list[dict]:
