@@ -90,11 +90,37 @@ class PRDGenerator:
 
         stories_data = data.get("user_stories", [])
         for idx, story in enumerate(stories_data, start=1):
+            if isinstance(story, str):
+                criteria = [
+                    AcceptanceCriterion(
+                        id=f"AC-{idx:03d}-1",
+                        description=story,
+                    ),
+                ]
+                us = UserStory(
+                    id=f"US-{idx:03d}",
+                    actor="User",
+                    capability=story[:60],
+                    benefit=story[:60],
+                    acceptance_criteria=criteria,
+                    priority="medium",
+                )
+                prd.add_user_story(us)
+                continue
+
             criteria_data = story.get("acceptance_criteria", [])
             criteria = [
                 AcceptanceCriterion(
-                    id=c.get("id", f"AC-{idx:03d}-{j}"),
-                    description=c.get("description", ""),
+                    id=(
+                        c.get("id", f"AC-{idx:03d}-{j}")
+                        if isinstance(c, dict)
+                        else f"AC-{idx:03d}-{j}"
+                    ),
+                    description=(
+                        c.get("description", "")
+                        if isinstance(c, dict)
+                        else str(c)
+                    ),
                 )
                 for j, c in enumerate(criteria_data, start=1)
             ]

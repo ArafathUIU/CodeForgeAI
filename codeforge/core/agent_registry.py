@@ -195,12 +195,22 @@ class BaseAgent(ABC):
         decision: str = "",
     ) -> None:
         """Send a natural collaboration note to another agent."""
+        final_thought = thought
+        if hasattr(self, "generate_collab_message"):
+            context = f"Thought: {thought}\nReasoning: {reasoning}\nPlan: {plan_snippet}"
+            natural = await self.generate_collab_message(
+                my_role=self.role,
+                target_role=target_agent,
+                context=context,
+            )
+            if natural:
+                final_thought = natural
         message = Message(
             sender=self._agent_id,
             recipient=target_agent,
             type=MessageType.COLLABORATION_NOTE,
             payload={
-                "thought": thought,
+                "thought": final_thought,
                 "mentions": [target_agent],
                 "reasoning": reasoning,
                 "plan_snippet": plan_snippet,

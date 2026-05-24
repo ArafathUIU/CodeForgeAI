@@ -193,57 +193,77 @@ class SystemArchitectAgent(LLMMixin, BaseAgent):
         )
 
     def _build_from_llm(self, data: dict, title: str) -> TechSpec:
+        def _g(item, key, default=""):
+            if isinstance(item, dict):
+                return item.get(key, default)
+            return str(item) if item else default
+
         tech_stack = []
         for item in data.get("tech_stack", []):
             tech_stack.append(TechStackDecision(
-                category=item.get("category", ""),
-                choice=item.get("choice", ""),
-                rationale=item.get("rationale", ""),
-                alternatives_considered=item.get("alternatives_considered", []),
+                category=_g(item, "category"),
+                choice=_g(item, "choice"),
+                rationale=_g(item, "rationale"),
+                alternatives_considered=(
+                    item.get("alternatives_considered", [])
+                    if isinstance(item, dict) else []
+                ),
             ))
 
         data_entities = []
         for entity in data.get("data_entities", []):
             fields = []
-            for f in entity.get("fields", []):
+            for f in (entity.get("fields", []) if isinstance(entity, dict) else []):
                 fields.append(DataField(
-                    name=f.get("name", "id"),
-                    type=f.get("type", "str"),
-                    required=f.get("required", True),
-                    indexed=f.get("indexed", False),
-                    description=f.get("description", ""),
+                    name=_g(f, "name", "id"),
+                    type=_g(f, "type", "str"),
+                    required=_g(f, "required", True) if isinstance(f, dict) else True,
+                    indexed=_g(f, "indexed", False) if isinstance(f, dict) else False,
+                    description=_g(f, "description"),
                 ))
             data_entities.append(DataEntity(
-                name=entity.get("name", "Entity"),
+                name=_g(entity, "name", "Entity"),
                 fields=fields,
-                relationships=entity.get("relationships", []),
+                relationships=(
+                    entity.get("relationships", [])
+                    if isinstance(entity, dict) else []
+                ),
             ))
 
         api_endpoints = []
         for ep in data.get("api_endpoints", []):
             api_endpoints.append(APIEndpoint(
-                method=ep.get("method", "GET"),
-                path=ep.get("path", "/"),
-                summary=ep.get("summary", ""),
-                request_schema=ep.get("request_schema", {}),
-                response_schema=ep.get("response_schema", {}),
-                auth_required=ep.get("auth_required", False),
+                method=_g(ep, "method", "GET"),
+                path=_g(ep, "path", "/"),
+                summary=_g(ep, "summary"),
+                request_schema=(
+                    ep.get("request_schema", {})
+                    if isinstance(ep, dict) else {}
+                ),
+                response_schema=(
+                    ep.get("response_schema", {})
+                    if isinstance(ep, dict) else {}
+                ),
+                auth_required=(
+                    ep.get("auth_required", False)
+                    if isinstance(ep, dict) else False
+                ),
             ))
 
         file_tree = []
         for node in data.get("file_tree", []):
             file_tree.append(FileTreeNode(
-                path=node.get("path", ""),
-                node_type=node.get("node_type", "file"),
-                purpose=node.get("purpose", ""),
+                path=_g(node, "path"),
+                node_type=_g(node, "node_type", "file"),
+                purpose=_g(node, "purpose"),
             ))
 
         risks = []
         for r in data.get("risks", []):
             risks.append(TechnicalRisk(
-                description=r.get("description", ""),
-                severity=r.get("severity", "medium"),
-                mitigation=r.get("mitigation", ""),
+                description=_g(r, "description"),
+                severity=_g(r, "severity", "medium"),
+                mitigation=_g(r, "mitigation"),
             ))
 
         return TechSpec(

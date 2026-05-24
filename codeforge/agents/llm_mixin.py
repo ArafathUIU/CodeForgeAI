@@ -83,15 +83,49 @@ class LLMMixin:
             return None
         try:
             data = ResponseParser.extract_json(response.content)
-            if data and required_keys:
+            if data is None:
+                return {"raw_content": response.content}
+            if isinstance(data, str):
+                return {"raw_content": data}
+            if not isinstance(data, dict):
+                return {"raw_content": response.content}
+            if required_keys:
                 missing = [k for k in required_keys if k not in data]
                 if missing:
                     logger.warning(f"LLM response missing keys: {missing}")
                     return None
-            return data or {"raw_content": response.content}
+            return data
         except Exception as e:
             logger.warning(f"Failed to parse LLM response: {e}")
             return None
 
     def format_artifact_json(self, data: dict[str, Any]) -> str:
         return json.dumps(data, indent=2, default=str)
+
+    async def generate_collab_message(
+        self,
+        my_role: str,
+        target_role: str,
+        context: str,
+    ) -> str | None:
+        """Generate a natural group-chat message using LLM."""
+        if not await self._check_llm():
+            return None
+        prompt = (
+            f"You are the {my_role} agent on a software development team. "
+            f"You are chatting directly with the {target_role} agent in a "
+            f"group chat. Be concise, natural, and professional. "
+            f"Mention @{target_role} in your message. "
+            f"Keep it 1-3 sentences.\n\n"
+            f"Context about what to communicate:\n{context}"
+        )
+        try:
+            messages = [ChatMessage(role="user", content=prompt)]
+            response = await self._llm.chat(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=300,
+            )
+            return response.content.strip().replace('\"', '')
+        except Exception:
+            return None

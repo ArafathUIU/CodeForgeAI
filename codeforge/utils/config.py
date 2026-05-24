@@ -56,15 +56,48 @@ def _get_env_bool(key: str, default: bool) -> bool:
 
 @dataclass
 class LLMConfig:
-    host: str = field(default_factory=lambda: _get_env("OLLAMA_HOST", "http://localhost:11434"))
-    model: str = field(default_factory=lambda: _get_env("OLLAMA_MODEL", "llama3.2"))
-    temperature: float = field(default_factory=lambda: _get_env_float("OLLAMA_TEMPERATURE", 0.2))
-    max_tokens: int = field(default_factory=lambda: _get_env_int("OLLAMA_MAX_TOKENS", 4096))
-    timeout: int = field(default_factory=lambda: _get_env_int("OLLAMA_TIMEOUT", 120))
+    provider: str = field(
+        default_factory=lambda: _get_env("LLM_PROVIDER", "ollama")
+    )
+    host: str = field(
+        default_factory=lambda: _get_env("OLLAMA_HOST", "http://localhost:11434")
+    )
+    model: str = field(
+        default_factory=lambda: _get_env("OLLAMA_MODEL", "llama3.2")
+    )
+    temperature: float = field(
+        default_factory=lambda: _get_env_float("OLLAMA_TEMPERATURE", 0.2)
+    )
+    max_tokens: int = field(
+        default_factory=lambda: _get_env_int("OLLAMA_MAX_TOKENS", 4096)
+    )
+    timeout: int = field(
+        default_factory=lambda: _get_env_int("OLLAMA_TIMEOUT", 120)
+    )
+    groq_api_key: str = field(
+        default_factory=lambda: _get_env("GROQ_API_KEY", "")
+    )
+    groq_model: str = field(
+        default_factory=lambda: _get_env("GROQ_MODEL", "llama-3.3-70b-versatile")
+    )
+    groq_temperature: float = field(
+        default_factory=lambda: _get_env_float("GROQ_TEMPERATURE", 0.3)
+    )
+    groq_max_tokens: int = field(
+        default_factory=lambda: _get_env_int("GROQ_MAX_TOKENS", 4096)
+    )
 
     @property
     def api_url(self) -> str:
         return f"{self.host}/api"
+
+    @property
+    def is_groq(self) -> bool:
+        return self.provider == "groq" and bool(self.groq_api_key)
+
+    @property
+    def is_ollama(self) -> bool:
+        return self.provider == "ollama"
 
 
 @dataclass

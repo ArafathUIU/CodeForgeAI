@@ -76,8 +76,10 @@ class LlmClient:
             self._client = None
 
     async def health_check(self) -> bool:
-        """Check if the Ollama server is reachable."""
+        """Check if the LLM server is reachable."""
         try:
+            if self.config.is_groq:
+                return bool(self.config.groq_api_key)
             client = await self._get_client()
             response = await client.get("/tags")
             return response.status_code == 200
@@ -100,6 +102,31 @@ class LlmClient:
             )
 
     async def chat(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        system: str | None = None,
+    ) -> LLMResponse:
+        if self.config.is_groq:
+            return await self._chat_groq(
+                messages=messages,
+                model=model or self.config.groq_model,
+                temperature=temperature or self.config.groq_temperature,
+                max_tokens=max_tokens or self.config.groq_max_tokens,
+                system=system,
+            )
+        return await self._chat_ollama(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            system=system,
+        )
+
+    async def _chat_ollama(
         self,
         messages: list[ChatMessage],
         *,
@@ -183,6 +210,80 @@ class LlmClient:
             prompt_tokens=data.get("prompt_eval_count", 0),
             completion_tokens=data.get("eval_count", 0),
             total_tokens=data.get("prompt_eval_count", 0) + data.get("eval_count", 0),
+            duration_ms=duration_ms,
+            raw_response=data,
+        )
+
+    async def _chat_groq(
+        self,
+        messages: list[ChatMessage],
+        *,
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        system: str | None = None,
+    ) -> LLMResponse:
+        groq_messages: list[dict] = []
+        if system:
+            groq_messages.append({"role": "system", "content": system})
+        for m in messages:
+            groq_messages.append({"role": m.role, "content": m.content})
+
+        payload = {
+            "model": model,
+            "messages": groq_messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.config.groq_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        start_time = time.time()
+
+        try:
+            client = httpx.AsyncClient(timeout=httpx.Timeout(self.config.timeout))
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                json=payload,
+                headers=headers,
+            )
+            response.raise_for_status()
+            data = response.json()
+            await client.aclose()
+        except httpx.ConnectError as e:
+            raise LLMConnectionError(
+                f"Cannot connect to Groq API: {e}",
+                code="CONNECTION_FAILED",
+            )
+        except httpx.TimeoutException:
+            raise LLMConnectionError(
+                f"Groq request timed out after {self.config.timeout}s",
+                code="TIMEOUT",
+            )
+        except httpx.HTTPError as e:
+            raise LLMResponseError(
+                f"Groq HTTP error: {e}",
+                code="HTTP_ERROR",
+            )
+
+        duration_ms = (time.time() - start_time) * 1000
+
+        choices = data.get("choices", [])
+        if not choices:
+            raise LLMResponseError("Empty response from Groq", code="EMPTY_RESPONSE")
+
+        content = choices[0].get("message", {}).get("content", "")
+        usage = data.get("usage", {})
+
+        return LLMResponse(
+            content=content,
+            model=data.get("model", model),
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            total_tokens=usage.get("total_tokens", 0),
             duration_ms=duration_ms,
             raw_response=data,
         )
