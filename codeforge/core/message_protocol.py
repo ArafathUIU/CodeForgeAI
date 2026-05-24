@@ -28,6 +28,7 @@ class MessageType(StrEnum):
     APPROVAL_REQUEST = "approval_request"
     APPROVAL_RESPONSE = "approval_response"
     SYSTEM_EVENT = "system_event"
+    COLLABORATION_NOTE = "collaboration_note"
 
 
 class Priority(StrEnum):
@@ -167,6 +168,7 @@ class MessageValidator:
         MessageType.APPROVAL_REQUEST: ["approval_id", "artifact_id", "description"],
         MessageType.APPROVAL_RESPONSE: ["approval_id", "decision", "comments"],
         MessageType.SYSTEM_EVENT: ["event_type", "description"],
+        MessageType.COLLABORATION_NOTE: ["thought", "mentions"],
     }
 
     OPTIONAL_PAYLOAD_KEYS: dict[MessageType, list[str]] = {
@@ -180,6 +182,7 @@ class MessageValidator:
         MessageType.APPROVAL_REQUEST: ["deadline", "impact", "alternatives"],
         MessageType.APPROVAL_RESPONSE: ["revision_notes", "deadline"],
         MessageType.SYSTEM_EVENT: ["severity", "affected_components"],
+        MessageType.COLLABORATION_NOTE: ["reasoning", "plan_snippet", "decision"],
     }
 
     @classmethod

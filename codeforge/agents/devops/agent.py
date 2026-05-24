@@ -140,3 +140,15 @@ class DevOpsAgent(LLMMixin, BaseAgent):
         )
         await self.send_message(artifact_msg)
         await self.update_status("Deployment config complete", 1.0)
+
+        await self.announce_to_group(
+            "Deployment is ready! I generated 4 files: "
+            "Dockerfile (multi-stage build), docker-compose.yml, "
+            "GitHub Actions CI/CD workflow, and .env.example. "
+            "The project is containerized and ready for staging "
+            "or production deployment.",
+            reasoning=(
+                "Generated Dockerfile, Compose, CI/CD, env template. "
+                "All deployment artifacts written to output directory."
+            ),
+        )

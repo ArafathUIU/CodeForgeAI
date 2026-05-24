@@ -55,6 +55,10 @@ h1, h2, h3, h4 { color: #00e5ff !important; }
 .chat-row.approval {
     border-left: 3px solid #ff5252;
 }
+.chat-row.collaboration {
+    border-left: 3px solid #00e5ff;
+    background: #0d1a2d;
+}
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
@@ -110,8 +114,8 @@ def main():
 
     _render_project_form(session)
 
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Live Comms", "Pipeline", "Decisions", "Artifacts",
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Live Comms", "Pipeline", "Decisions", "Artifacts", "Plan",
     ])
 
     with tab1:
@@ -122,6 +126,8 @@ def main():
         render_decisions(state)
     with tab4:
         render_artifacts(state)
+    with tab5:
+        render_plan_thread(state)
 
 
 def render_conversation(session: PipelineSession, state: dict):
@@ -175,12 +181,16 @@ def render_conversation(session: PipelineSession, state: dict):
                 if kind_filter != "All" and entry.get("kind") != kind_filter:
                     continue
                 kind = entry.get("kind", "status")
-                has_style = kind in ("thinking", "system", "artifact", "approval")
+                has_style = kind in (
+                    "thinking", "system", "artifact", "approval",
+                    "collaboration",
+                )
                 row_class = f"chat-row {kind}" if has_style else "chat-row"
                 text = entry.get("text", "")
                 if kind == "thinking":
                     text = f'{text} <span class="thinking-dots"></span>'
-                st.markdown(
+
+                bubble_html = (
                     f'<div class="{row_class}">'
                     f'<div class="chat-header">'
                     f'<span class="chat-from-name">'
@@ -192,9 +202,30 @@ def render_conversation(session: PipelineSession, state: dict):
                     f'{entry.get("timestamp", "")[:19]}</span>'
                     f'</div>'
                     f'<div class="chat-text">{text}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
                 )
+
+                reasoning = entry.get("reasoning", "")
+                plan = entry.get("plan_snippet", "")
+                if reasoning or plan:
+                    bubble_html += (
+                        '<div style="margin-left:24px; margin-top:4px; '
+                        'font-size:0.76em;">'
+                    )
+                    if reasoning:
+                        bubble_html += (
+                            f'<span style="color:#607d8b;">Reasoning: </span>'
+                            f'<span style="color:#8fa4b8;">{reasoning}</span>'
+                        )
+                    if plan:
+                        bubble_html += (
+                            f'<br><span style="color:#ffab00; font-weight:600;">'
+                            f'Plan: </span>'
+                            f'<span style="color:#ccc;">{plan}</span>'
+                        )
+                    bubble_html += '</div>'
+
+                bubble_html += '</div>'
+                st.markdown(bubble_html, unsafe_allow_html=True)
         else:
             st.info("No dialogue entries synthesized. Check 'Show raw protocol' ")
 
@@ -469,6 +500,42 @@ def _render_deploy(data: dict):
     st.metric("Files", len(data.get("files_generated", [])))
     for f in data.get("files_generated", []):
         st.text(f)
+
+
+def render_plan_thread(state: dict):
+    st.header("Plan Thread")
+    dialogue = state.get("dialogue", [])
+
+    collab_entries = [
+        d for d in dialogue
+        if d.get("kind") in ("collaboration", "task") and d.get("plan_snippet")
+    ]
+
+    if not collab_entries:
+        st.info("No plan entries yet. Start a project to see agent strategy discussions.")
+        return
+
+    for entry in reversed(collab_entries):
+        reason = entry.get("reasoning", "")
+        plan = entry.get("plan_snippet", "")
+        text = entry.get("text", "")
+
+        with st.container():
+            st.markdown(
+                f'<div class="decision-card">'
+                f'<span class="decision-icon">'
+                f'{entry["sender_avatar"]}</span> '
+                f'<span class="decision-title">'
+                f'{entry["sender_name"]}'
+                f'</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if reason:
+                st.caption(f"Reasoning: {reason}")
+            if plan:
+                st.markdown(f"**Plan:** {plan}")
+            st.caption(f"Message: {text[:120]}")
 
 
 if __name__ == "__main__":

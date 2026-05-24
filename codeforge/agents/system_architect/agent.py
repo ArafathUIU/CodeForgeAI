@@ -102,6 +102,33 @@ class SystemArchitectAgent(LLMMixin, BaseAgent):
                 risks=risks,
             )
 
+        stack_summary = ", ".join(
+            f"{t.get('category', '')}:{t.get('choice', '')}"
+            for t in spec.tech_stack[:4]
+        )
+        await self.discuss_with(
+            "code_writer",
+            f"Architecture is ready for \u201c{spec.title}\u201d. "
+            f"Stack: {stack_summary}. "
+            f"I designed {len(spec.data_entities)} data entities "
+            f"and {len(spec.api_endpoints)} API endpoints. "
+            f"File tree has {len(spec.file_tree)} nodes "
+            f"across the project structure. "
+            f"I assessed {len(spec.risks)} risks \u2014 "
+            f"please implement following the file tree structure "
+            f"and API contracts.",
+            reasoning=(
+                f"Selected stack based on {prd.title} requirements. "
+                f"Data model covers {len(spec.data_entities)} entities. "
+                f"API contracts follow RESTful conventions."
+            ),
+            plan_snippet=(
+                f"Stack: {stack_summary}. "
+                f"Entities: {len(spec.data_entities)}. "
+                f"Endpoints: {len(spec.api_endpoints)}."
+            ),
+        )
+
         artifact_message = create_artifact_submission(
             artifact_id=spec.id,
             artifact_type=ArtifactType.TECH_SPEC,

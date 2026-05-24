@@ -140,6 +140,25 @@ class TestEngineerAgent(LLMMixin, BaseAgent):
                 f.write(test_content)
             test_files.append(f"tests/{test_name}")
 
+        await self.discuss_with(
+            "code_reviewer",
+            f"I have generated {len(test_files)} test files "
+            f"covering {coverage_report.patterns_used} test patterns. "
+            f"{coverage_report.summary()}. "
+            f"I tested {len(symbols)} symbols across the codebase. "
+            f"Please review the code quality, security, style, "
+            f"and architecture compliance.",
+            reasoning=(
+                f"Applied {coverage_report.patterns_used} test patterns. "
+                f"Tested {len(symbols)} symbols. "
+                f"Meets threshold: {coverage_report.meets_threshold}."
+            ),
+            plan_snippet=(
+                f"Tests: {len(test_files)} files, "
+                f"{coverage_report.patterns_used} patterns."
+            ),
+        )
+
         test_suite_id = f"test-suite-{uuid.uuid4().hex[:8]}"
 
         artifact_msg = create_artifact_submission(

@@ -124,6 +124,25 @@ class CodeWriterAgent(LLMMixin, BaseAgent):
 
         unresolved = self._tracker.get_unresolved(generated_code)
 
+        await self.discuss_with(
+            "test_engineer",
+            f"I have implemented {len(batch_result.files_written)} files "
+            f"based on the architecture. {report_text}. "
+            f"I need comprehensive tests covering "
+            f"happy path, edge cases, error handling, "
+            f"and integration flows. "
+            f"Key files to test: "
+            f"{', '.join(sorted(batch_result.files_written)[:5])}.",
+            reasoning=(
+                f"Generated {len(generated_code)} source files. "
+                f"Files failed validation: {len(batch_result.files_failed)}. "
+                f"Unresolved references: {len(unresolved)}."
+            ),
+            plan_snippet=(
+                f"Files: {sorted(batch_result.files_written)[:6]}."
+            ),
+        )
+
         source_code_id = f"source-code-{uuid.uuid4().hex[:8]}"
 
         await self.update_status("Submitting source code artifact", 0.95)

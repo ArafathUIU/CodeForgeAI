@@ -186,6 +186,48 @@ class BaseAgent(ABC):
         await self.send_message(message)
         self._state = AgentState.BLOCKED
 
+    async def discuss_with(
+        self,
+        target_agent: str,
+        thought: str,
+        reasoning: str = "",
+        plan_snippet: str = "",
+        decision: str = "",
+    ) -> None:
+        """Send a natural collaboration note to another agent."""
+        message = Message(
+            sender=self._agent_id,
+            recipient=target_agent,
+            type=MessageType.COLLABORATION_NOTE,
+            payload={
+                "thought": thought,
+                "mentions": [target_agent],
+                "reasoning": reasoning,
+                "plan_snippet": plan_snippet,
+                "decision": decision,
+            },
+            priority=Priority.NORMAL,
+        )
+        await self.send_message(message)
+
+    async def announce_to_group(self, thought: str, reasoning: str = "") -> None:
+        """Broadcast a decision or insight to all agents."""
+        for agent_id in ("product_manager", "system_architect", "code_writer",
+                         "test_engineer", "code_reviewer", "devops"):
+            if agent_id != self._agent_id:
+                message = Message(
+                    sender=self._agent_id,
+                    recipient=agent_id,
+                    type=MessageType.COLLABORATION_NOTE,
+                    payload={
+                        "thought": thought,
+                        "mentions": [agent_id],
+                        "reasoning": reasoning,
+                    },
+                    priority=Priority.NORMAL,
+                )
+                await self.send_message(message)
+
     async def update_status(
         self, status: str, progress: float = 0.0, thinking: bool = False
     ) -> None:

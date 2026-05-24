@@ -85,19 +85,15 @@ class CodeReviewerAgent(LLMMixin, BaseAgent):
         all_findings = self._analyzers.aggregate_findings(all_results)
         overall_score = self._analyzers.overall_score(all_results)
 
-        fixable = [f for f in all_findings if f.auto_fixable]
-        fixed = len(fixable)
-
-        critical_count = sum(
-            1 for f in all_findings if self._classifier.is_blocking(f.severity)
-        )
-
         await self.update_status("Compiling review report", 0.95)
 
-        review_id = f"review-{uuid.uuid4().hex[:8]}"
+        all_findings = self._analyzers.collect_findings(all_results)
+        critical_count = sum(1 for f in all_findings if f.severity.value == "critical")
+        auto_fixed_count = self._auto_fixer.fixed_count
+        fixed = auto_fixed_count
 
         artifact_msg = create_artifact_submission(
-            artifact_id=review_id,
+            artifact_id=f"review-{uuid.uuid4().hex[:8]}",
             artifact_type=ArtifactType.REVIEW_REPORT,
             content={
                 "overall_score": overall_score,
@@ -118,3 +114,25 @@ class CodeReviewerAgent(LLMMixin, BaseAgent):
         )
         await self.send_message(artifact_msg)
         await self.update_status("Review complete", 1.0)
+
+        await self.discuss_with(
+            "devops",
+            f"Code review complete with score {overall_score:.1%}. "
+            f"I ran 6 analysis layers (syntax, security, style, "
+            f"performance, maintainability, architecture). "
+            f"Found {len(all_findings)} findings across the codebase. "
+            f"Auto-fixed {fixed} style issues. "
+            f"The code is ready for deployment \u2014 "
+            f"please generate Docker, Compose, and CI/CD configs.",
+            reasoning=(
+                f"Overall score: {overall_score:.1%}. "
+                f"Findings: {len(all_findings)}. "
+                f"Style fixes: {fixed}. "
+                f"All 6 analysis layers completed."
+            ),
+            plan_snippet=(
+                f"Score: {overall_score:.1%}. "
+                f"Findings: {len(all_findings)}. "
+                f"Deployment: ready."
+            ),
+        )

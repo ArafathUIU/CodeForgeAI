@@ -71,6 +71,33 @@ class ProductManagerAgent(LLMMixin, BaseAgent):
             await self.update_status("Generating PRD (deterministic)", 0.75)
             prd = self._prd_generator.generate(intent, clarifications)
 
+        scope_first = "core workflow"
+        if prd.scope:
+            in_scope = (
+                prd.scope.in_scope
+                if hasattr(prd.scope, "in_scope")
+                else prd.scope.get("in_scope", ["core features"])
+            )
+            scope_first = in_scope[0] if in_scope else "core workflow"
+        await self.discuss_with(
+            "system_architect",
+            f"I have completed the Product Requirements Document "
+            f"for \u201c{prd.title}\u201d. "
+            f"Key goals: {', '.join(prd.goals[:3])}. "
+            f"Scope includes {scope_first}. "
+            f"Edge cases and open questions have been catalogued. "
+            f"Please design the architecture \u2014 I need a clean tech stack, "
+            f"data model, and API contract.",
+            reasoning=(
+                f"Parsed user intent from specification. "
+                f"Product scope is clearly defined for MVP delivery."
+            ),
+            plan_snippet=(
+                f"Goals: {', '.join(prd.goals[:3])}. "
+                f"Scope: {scope_first}."
+            ),
+        )
+
         artifact_message = create_artifact_submission(
             artifact_id=prd.id,
             artifact_type=ArtifactType.PRD,
