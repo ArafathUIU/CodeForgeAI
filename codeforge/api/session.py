@@ -62,6 +62,7 @@ class PipelineSession:
             self._llm = None
 
         self._bus.subscribe("all", self._capture_message)
+        self._bus.register_agent("human_operator", self._noop)  # silence dead-letter warnings
 
     def _capture_message(self, message) -> None:
         msg_type = getattr(message, "type", "")
@@ -77,6 +78,10 @@ class PipelineSession:
         if len(self._messages) > 500:
             self._messages = self._messages[-300:]
 
+    @staticmethod
+    def _noop(_message) -> None:
+        pass
+
     def register_agents(self, output_dir: str = "") -> None:
         pm = ProductManagerAgent(
             agent_id="product_manager", message_bus=self._bus,
@@ -91,21 +96,22 @@ class PipelineSession:
         cw = CodeWriterAgent(
             agent_id="code_writer", message_bus=self._bus,
             episodic_store=self._episodic, semantic_store=self._semantic,
-            output_dir=output_dir,
+            output_dir=output_dir, llm_client=self._llm,
         )
         te = TestEngineerAgent(
             agent_id="test_engineer", message_bus=self._bus,
             episodic_store=self._episodic, semantic_store=self._semantic,
-            output_dir=output_dir,
+            output_dir=output_dir, llm_client=self._llm,
         )
         cr = CodeReviewerAgent(
             agent_id="code_reviewer", message_bus=self._bus,
             episodic_store=self._episodic, semantic_store=self._semantic,
+            llm_client=self._llm,
         )
         ops = DevOpsAgent(
             agent_id="devops", message_bus=self._bus,
             episodic_store=self._episodic, semantic_store=self._semantic,
-            output_dir=output_dir,
+            output_dir=output_dir, llm_client=self._llm,
         )
 
         for agent in [pm, sa, cw, te, cr, ops]:
