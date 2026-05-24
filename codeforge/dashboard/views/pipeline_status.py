@@ -9,7 +9,7 @@ def render_pipeline_status():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        phase = st.selectbox(
+        _ = st.selectbox(
             "Current Phase",
             ["init", "requirements", "architecture", "implementation",
              "testing", "review", "deployment", "complete"],
@@ -47,6 +47,6 @@ def render_pipeline_status():
             height=100,
         )
     with col2:
-        output_dir = st.text_input("Output Directory", value="./codeforge_output")
+        _ = st.text_input("Output Directory", value="./codeforge_output")
         if st.button("Start Project", type="primary", use_container_width=True):
             st.info(f"Starting project with specification of {len(spec)} chars")

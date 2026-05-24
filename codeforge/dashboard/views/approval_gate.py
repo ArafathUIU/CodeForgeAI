@@ -26,10 +26,10 @@ def render_approval_gate():
                 if st.button(f"Approve {gate['artifact']}", key=f"approve_{gate['artifact']}"):
                     st.success(f"Approved {gate['artifact']}!")
             with col2:
-                comments = st.text_area(
+                _ = st.text_area(
                     "Revision notes",
                     key=f"comments_{gate['artifact']}",
                     placeholder="What needs to change?",
                 )
-                if st.button(f"Request Changes", key=f"reject_{gate['artifact']}"):
+                if st.button("Request Changes", key=f"reject_{gate['artifact']}"):
                     st.warning(f"Changes requested for {gate['artifact']}")

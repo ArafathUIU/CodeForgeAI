@@ -9,8 +9,8 @@ Each module renders a section of the dashboard:
 """
 
 from codeforge.dashboard.views.agent_monitor import render_agent_monitor
-from codeforge.dashboard.views.artifact_viewer import render_artifact_viewer
 from codeforge.dashboard.views.approval_gate import render_approval_gate
+from codeforge.dashboard.views.artifact_viewer import render_artifact_viewer
 from codeforge.dashboard.views.message_feed import render_message_feed
 from codeforge.dashboard.views.pipeline_status import render_pipeline_status
 
