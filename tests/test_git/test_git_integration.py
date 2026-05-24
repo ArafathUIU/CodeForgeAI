@@ -2,9 +2,9 @@
 
 import pytest
 
-from codeforge.git.repo_manager import RepoManager
-from codeforge.git.commit_manager import CommitManager
 from codeforge.git.branch_manager import BranchManager
+from codeforge.git.commit_manager import CommitManager
+from codeforge.git.repo_manager import RepoManager
 
 
 class TestRepoManager:
@@ -32,7 +32,6 @@ class TestRepoManager:
         repo_manager.initialize()
         path = repo_manager.create_gitignore()
         assert ".gitignore" in path
-        import os
         content = open(path).read()
         assert "__pycache__" in content
 

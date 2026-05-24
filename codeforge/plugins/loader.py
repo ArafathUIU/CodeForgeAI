@@ -7,8 +7,7 @@ loads Python modules dynamically for agent registration.
 from __future__ import annotations
 
 import importlib
-import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -63,7 +62,7 @@ class PluginLoader:
             module = importlib.import_module(module_path)
             info.loaded = True
             return module
-        except ImportError as e:
+        except ImportError:
             return None
 
     def get_discovered(self) -> list[PluginInfo]:

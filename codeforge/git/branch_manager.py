@@ -93,16 +93,13 @@ class BranchManager:
             if source is None:
                 return {"error": f"Branch not found: {source_branch}"}
 
-            current = repo.active_branch.name
-            merge_base = repo.merge_base(current, source_branch)
-
             repo.git.merge(source_branch, m=message or f"Merge {source_branch}")
 
-            logger.info(f"Merged {source_branch} into {current}")
+            logger.info(f"Merged {source_branch} into {repo.active_branch.name}")
             return {
                 "merged": True,
                 "source": source_branch,
-                "target": current,
+                "target": repo.active_branch.name,
             }
         except Exception as e:
             logger.error(f"Merge failed: {e}")

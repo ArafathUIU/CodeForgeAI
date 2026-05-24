@@ -1,12 +1,11 @@
 """Tests for DevOps Agent components."""
 
-import os
 
 import pytest
 
-from codeforge.agents.devops.docker_generator import DockerfileConfig, DockerfileGenerator
-from codeforge.agents.devops.compose_generator import ComposeConfig, ComposeGenerator, ServiceConfig
 from codeforge.agents.devops.cicd_generator import CICDConfig, CICDGenerator
+from codeforge.agents.devops.compose_generator import ComposeConfig, ComposeGenerator, ServiceConfig
+from codeforge.agents.devops.docker_generator import DockerfileConfig, DockerfileGenerator
 
 
 class TestDockerfileGenerator:
