@@ -2,26 +2,34 @@
 
 from __future__ import annotations
 
+import json
 import os
 import uuid
 
+from codeforge.agents.llm_mixin import LLMMixin
 from codeforge.agents.test_engineer.coverage_analyzer import CoverageAnalyzer
 from codeforge.agents.test_engineer.fixture_builder import FixtureBuilder
 from codeforge.agents.test_engineer.pattern_generators import PatternGenerators
 from codeforge.core.agent_registry import BaseAgent
+from codeforge.core.llm_client import LlmClient
 from codeforge.core.message_protocol import (
     ArtifactType,
     Message,
     MessageType,
     create_artifact_submission,
 )
+from codeforge.prompts.test_engineer import (
+    TEST_ENGINEER_SYSTEM_PROMPT,
+    build_test_prompt,
+)
 
 
-class TestEngineerAgent(BaseAgent):
+class TestEngineerAgent(LLMMixin, BaseAgent):
     """Generates meaningful tests proving code works across 5 patterns."""
 
-    def __init__(self, *args, output_dir: str = "", **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, output_dir: str = "", llm_client: LlmClient | None = None, **kwargs):
+        BaseAgent.__init__(self, *args, **kwargs)
+        LLMMixin.__init__(self, llm_client=llm_client)
         self._output_dir = output_dir
         self._pattern_generator = PatternGenerators()
         self._fixture_builder = FixtureBuilder()
@@ -50,10 +58,31 @@ class TestEngineerAgent(BaseAgent):
             symbols_to_test = ["DefaultService"]
 
         all_tests: list[str] = []
-        for name in symbols_to_test:
-            suite = self._pattern_generator.generate_full_suite(name)
-            for tc in suite:
-                all_tests.append(tc.code)
+
+        llm_available = await self._check_llm()
+        if llm_available and symbols_to_test:
+            await self.update_status("Generating tests via LLM", 0.15)
+            for name in symbols_to_test[:3]:
+                entity_code = json.dumps(
+                    next((e for e in entities if e.get("name", "") == name), {}),
+                    indent=2, default=str,
+                )
+                response = await self.llm_reason(
+                    system_prompt=TEST_ENGINEER_SYSTEM_PROMPT,
+                    user_prompt=build_test_prompt(entity_code, name),
+                    temperature=0.2,
+                )
+                llm_data = self.parse_json_response(response)
+                if llm_data:
+                    test_code = llm_data.get("test_code", llm_data.get("raw_content", ""))
+                    if test_code:
+                        all_tests.append(test_code)
+
+        if not all_tests:
+            for name in symbols_to_test:
+                suite = self._pattern_generator.generate_full_suite(name)
+                for tc in suite:
+                    all_tests.append(tc.code)
 
         await self.update_status("Building fixtures", 0.4)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 from codeforge.agents.code_writer.batch_implementer import BatchImplementer
@@ -10,20 +11,27 @@ from codeforge.agents.code_writer.skeleton_builder import SkeletonBuilder
 from codeforge.agents.code_writer.structured_editor import StructuredEditor
 from codeforge.agents.code_writer.symbol_tracker import SymbolTracker
 from codeforge.agents.code_writer.syntax_validator import SyntaxValidator
+from codeforge.agents.llm_mixin import LLMMixin
 from codeforge.core.agent_registry import BaseAgent
+from codeforge.core.llm_client import LlmClient
 from codeforge.core.message_protocol import (
     ArtifactType,
     Message,
     MessageType,
     create_artifact_submission,
 )
+from codeforge.prompts.code_writer import (
+    CODE_WRITER_SYSTEM_PROMPT,
+    build_full_implementation_prompt,
+)
 
 
-class CodeWriterAgent(BaseAgent):
+class CodeWriterAgent(LLMMixin, BaseAgent):
     """Implements software from technical specifications in five stages."""
 
-    def __init__(self, *args, output_dir: str = "", **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, output_dir: str = "", llm_client: LlmClient | None = None, **kwargs):
+        BaseAgent.__init__(self, *args, **kwargs)
+        LLMMixin.__init__(self, llm_client=llm_client)
         self._output_dir = output_dir
         self._editor = StructuredEditor(base_dir=output_dir)
         self._skeleton_builder = SkeletonBuilder(self._editor)
@@ -79,6 +87,25 @@ class CodeWriterAgent(BaseAgent):
         await self.update_status("Implementing code", 0.4)
 
         generated_code = self._generate_code(tech_spec_data, skeleton_result.files_created)
+
+        llm_available = await self._check_llm()
+        if llm_available and tech_spec_data:
+            await self.update_status("Enhancing with LLM code generation", 0.35)
+            spec_json = json.dumps(tech_spec_data, indent=2, default=str)
+            response = await self.llm_reason(
+                system_prompt=CODE_WRITER_SYSTEM_PROMPT,
+                user_prompt=build_full_implementation_prompt(spec_json),
+                temperature=0.2,
+                max_tokens=4096,
+            )
+            llm_data = self.parse_json_response(response)
+            if llm_data:
+                for key, value in llm_data.items():
+                    if isinstance(value, str) and len(value) > 10:
+                        file_path = key if "/" in key or "\\" in key else key
+                        generated_code[file_path] = value
+                await self.update_status("LLM code merged", 0.5)
+
         batch_result = self._implementer.implement(generated_code, build_order)
 
         await self.update_status("Validating syntax", 0.7)

@@ -7,20 +7,27 @@ import uuid
 from codeforge.agents.code_reviewer.analyzers import ReviewAnalyzers
 from codeforge.agents.code_reviewer.auto_fixer import AutoFixer
 from codeforge.agents.code_reviewer.severity import SeverityClassifier
+from codeforge.agents.llm_mixin import LLMMixin
 from codeforge.core.agent_registry import BaseAgent
+from codeforge.core.llm_client import LlmClient
 from codeforge.core.message_protocol import (
     ArtifactType,
     Message,
     MessageType,
     create_artifact_submission,
 )
+from codeforge.prompts.code_reviewer import (
+    CODE_REVIEWER_SYSTEM_PROMPT,
+    build_review_prompt,
+)
 
 
-class CodeReviewerAgent(BaseAgent):
+class CodeReviewerAgent(LLMMixin, BaseAgent):
     """Performs automated, multi-layered code review across 6 dimensions."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, llm_client: LlmClient | None = None, **kwargs):
+        BaseAgent.__init__(self, *args, **kwargs)
+        LLMMixin.__init__(self, llm_client=llm_client)
         self._analyzers = ReviewAnalyzers()
         self._auto_fixer = AutoFixer()
         self._classifier = SeverityClassifier()
@@ -40,10 +47,29 @@ class CodeReviewerAgent(BaseAgent):
         sample_files = context.get("files", {})
         all_results = []
 
-        for file_path, content in sample_files.items():
-            if isinstance(content, str):
-                file_results = self._analyzers.run_all(file_path, content)
-                all_results.extend(file_results)
+        llm_available = await self._check_llm()
+        if llm_available and sample_files:
+            await self.update_status("LLM-powered review", 0.1)
+            for file_path, content in list(sample_files.items())[:5]:
+                if isinstance(content, str) and len(content) > 5:
+                    response = await self.llm_reason(
+                        system_prompt=CODE_REVIEWER_SYSTEM_PROMPT,
+                        user_prompt=build_review_prompt(content, file_path),
+                        temperature=0.2,
+                    )
+                    llm_data = self.parse_json_response(response,
+                        required_keys=["overall_score", "findings"])
+                    if llm_data:
+                        for finding in llm_data.get("findings", []):
+                            all_results.append(self._analyzers.analyze_syntax(
+                                file_path, content))
+                        break
+
+        if not all_results:
+            for file_path, content in sample_files.items():
+                if isinstance(content, str):
+                    file_results = self._analyzers.run_all(file_path, content)
+                    all_results.extend(file_results)
 
         if not all_results:
             all_results = self._analyzers.run_all(
